@@ -140,11 +140,10 @@ func main() {
 	}
 
 	controlCommands := make(chan string)
-	/*
-		// start the control command handler
-		go handleControlCommands(node, controlCommands, quit)
 
-	*/
+	// start the control command handler
+	go handleControlCommands(node, controlCommands, quit)
+
 	mqttClient := createMQTTClient()
 	defer mqttClient.Disconnect(1000)
 
