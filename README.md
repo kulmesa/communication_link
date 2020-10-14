@@ -10,7 +10,7 @@ The `rsa_private.pem` will stay on the device side and the public part `rsa_cert
 
 The node uses private library from github.com/ssrc-tii/rclgo so to allow go build fetch dependencies we need to allow this. When using ssh keys with github the easiest way is to config git to use git@github.com instead of https
 ```
-git config --global url."git@github.com".insteadOf "https://github.com"
+git config --global url."git@github.com:".insteadOf "https://github.com/"
 ```
 
 On top of this we need to disable the version information fetch by marking the repository as private
