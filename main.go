@@ -23,7 +23,7 @@ const (
 	RegistryID     = "fleet-registry"
 	ProjectID      = "auto-fleet-mgnt"
 	Region         = "europe-west1"
-	PrivateKeyPath = "rsa_private.pem"
+	PrivateKeyPath = "/enclave/rsa_private.pem"
 	Algorithm      = "RS256"
 	Server         = "ssl://mqtt.googleapis.com:8883"
 )
