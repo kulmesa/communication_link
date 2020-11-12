@@ -143,6 +143,76 @@ func handleControlCommands(node rclgo.Node, commands <-chan string, quit <-chan 
 
 }
 
+
+func handleGpsMesssages(node rclgo.Node, quit <-chan struct{}, mgttClient mqtt.Client){
+
+	msg := make(chan string, 1)
+	go func() {
+		// Receive input in a loop
+		for {
+			var s string
+			fmt.Scan(&s)
+			// Send what we read over the channel
+			msg <- s
+		}
+	}()
+
+	//Create the subscriptor
+	mySub := rclgo.NewZeroInitializedSubscription()
+	mySubOpts := rclgo.NewSubscriptionDefaultOptions()
+
+	//Creating the type
+//	msgType := types.GetMessageTypeFromStdMsgsString()
+	msgType := types.GetMessageTypeFromStdMsgsString()
+	
+
+	fmt.Printf("Creating the subscriber! \n")
+	err := mySub.Init(mySubOpts, node, "/VehicleGlobalPosition_temp", msgType)
+	if err != nil {
+		log.Fatalf("SubscriptionsInit: %s", err)
+	}
+
+	//Creating the msg type
+	var myMsg types.StdMsgsString
+	myMsg.InitMessage()
+
+//loop:
+	for {
+
+		//fmt.Printf("(Suscriber loop 1\n")
+		err = mySub.TakeMessage(&myMsg.MsgInfo, myMsg.GetData())
+		//fmt.Printf("TakeMessage err %s\n", err)
+		if err == nil {
+//			fmt.Printf("(Suscriber) Received %s\n", myMsg.GetDataAsString())
+			pubmes := fmt.Sprintf("{Coordinates:%s}", myMsg.GetDataAsString())
+			fmt.Printf(pubmes)
+			//mgttClient.Publish("/testing", 0, false, pubmes)
+		}
+		//fmt.Printf("(Suscriber loop 2\n")
+
+
+		time.Sleep(100 * time.Millisecond)
+/*		select {
+		case <-quit:
+			fmt.Println("Got shutdown, exiting")
+			break loop
+		case <-msg:
+			fmt.Println("kukkuu")
+		}*/
+	}
+
+	fmt.Printf("Shutting down!! \n")
+
+	myMsg.DestroyMessage()
+	err = mySub.SubscriptionFini(node)
+	if err != nil {
+		log.Fatalf("SubscriptionFini: %s", err)
+	}
+
+}
+
+
+
 func main() {
 	flag.Parse()
 	// attach sigint & sigterm listeners
@@ -163,7 +233,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Could not initialize context: %v", err)
 	}
-	log.Println("Context initialized")
+	log.Println("Context initialized: test")
 
 	node := rclgo.NewZeroInitializedNode()
 	nodeOpts := rclgo.NewNodeDefaultOptions()
@@ -182,6 +252,11 @@ func main() {
 
 	mqttClient := createMQTTClient()
 	defer mqttClient.Disconnect(1000)
+
+
+	// start the gps message listener
+	go handleGpsMesssages(node, quit, mqttClient)
+
 
 	log.Printf("Wait for mqtt messages..")
 	commandTopic := fmt.Sprintf("/devices/%s/commands/", *DeviceID)
