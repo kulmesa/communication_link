@@ -20,16 +20,16 @@ import (
 )
 
 const (
-	RegistryID     = "fleet-registry"
-	ProjectID      = "auto-fleet-mgnt"
-	Region         = "europe-west1"
-	PrivateKeyPath = "/enclave/rsa_private.pem"
-	Algorithm      = "RS256"
-	Server         = "ssl://mqtt.googleapis.com:8883"
+	RegistryID = "fleet-registry"
+	ProjectID  = "auto-fleet-mgnt"
+	Region     = "europe-west1"
+	Algorithm  = "RS256"
+	Server     = "ssl://mqtt.googleapis.com:8883"
 )
 
 var (
-	DeviceID = flag.String("device_id", "", "The provisioned device id")
+	DeviceID       = flag.String("device_id", "", "The provisioned device id")
+	PrivateKeyPath = flag.String("private_key", "/enclave/rsa_private.pem", "The private key for the MQTT authentication")
 )
 
 // MQTT parameters
@@ -143,75 +143,83 @@ func handleControlCommands(node rclgo.Node, commands <-chan string, quit <-chan 
 
 }
 
+type Telemetry struct {
+	Coordinates Coordinates
+	DeviceId    string
+}
+type Coordinates struct {
+	Lat float64
+	Lng float64
+}
+type ROSCoordinates struct {
+	Lat float64 `json:"lat"`
+	Lon float64 `json:"lon"`
+}
 
-func handleGpsMesssages(node rclgo.Node, quit <-chan struct{}, mgttClient mqtt.Client){
+const (
+	qos    = 1
+	retain = false
+)
 
-	msg := make(chan string, 1)
-	go func() {
-		// Receive input in a loop
-		for {
-			var s string
-			fmt.Scan(&s)
-			// Send what we read over the channel
-			msg <- s
+func sendGPSLocation(mqttClient mqtt.Client, coordinates Coordinates) {
+	topic := fmt.Sprintf("/devices/%s/%s", *DeviceID, "events")
+	t := Telemetry{
+		Coordinates: coordinates,
+		DeviceId:    *DeviceID,
+	}
+	b, _ := json.Marshal(t)
+	mqttClient.Publish(topic, qos, retain, string(b))
+}
+
+func handleGpsMesssages(node rclgo.Node, mqttClient mqtt.Client, quit <-chan struct{}) {
+	sub := rclgo.NewZeroInitializedSubscription()
+	subOpts := rclgo.NewSubscriptionDefaultOptions()
+
+	msgType := types.GetMessageTypeFromStdMsgsString()
+
+	log.Println("Creating the subscriber")
+
+	err := sub.Init(subOpts, node, "/VehicleGlobalPosition_temp", msgType)
+	if err != nil {
+		log.Fatalf("Could not initialide subscription: %v", err)
+	}
+	defer func() {
+		err := sub.SubscriptionFini(node)
+		if err != nil {
+			log.Fatalf("SubscriptionFini: %v", err)
 		}
 	}()
 
-	//Create the subscriptor
-	mySub := rclgo.NewZeroInitializedSubscription()
-	mySubOpts := rclgo.NewSubscriptionDefaultOptions()
-
-	//Creating the type
-//	msgType := types.GetMessageTypeFromStdMsgsString()
-	msgType := types.GetMessageTypeFromStdMsgsString()
-	
-
-	fmt.Printf("Creating the subscriber! \n")
-	err := mySub.Init(mySubOpts, node, "/VehicleGlobalPosition_temp", msgType)
-	if err != nil {
-		log.Fatalf("SubscriptionsInit: %s", err)
-	}
-
 	//Creating the msg type
-	var myMsg types.StdMsgsString
-	myMsg.InitMessage()
+	var msg types.StdMsgsString
+	msg.InitMessage()
+	defer msg.DestroyMessage()
 
-//loop:
 	for {
-
-		//fmt.Printf("(Suscriber loop 1\n")
-		err = mySub.TakeMessage(&myMsg.MsgInfo, myMsg.GetData())
-		//fmt.Printf("TakeMessage err %s\n", err)
+		// check if any messages in topic
+		err := sub.TakeMessage(&msg.MsgInfo, msg.GetData())
 		if err == nil {
-//			fmt.Printf("(Suscriber) Received %s\n", myMsg.GetDataAsString())
-			pubmes := fmt.Sprintf("{Coordinates:%s}", myMsg.GetDataAsString())
-			fmt.Printf(pubmes)
-			//mgttClient.Publish("/testing", 0, false, pubmes)
+			coordinates := msg.GetDataAsString()
+			log.Printf("got gps: %v", coordinates)
+			var rosCoord ROSCoordinates
+			err := json.Unmarshal([]byte(coordinates), &rosCoord)
+			if err != nil {
+				log.Printf("Could not parse coordinates: %v", err)
+			} else {
+				sendGPSLocation(mqttClient, Coordinates{rosCoord.Lat, rosCoord.Lon})
+			}
 		}
-		//fmt.Printf("(Suscriber loop 2\n")
 
-
-		time.Sleep(100 * time.Millisecond)
-/*		select {
+		// check if time to quit
+		// or sleep a bit
+		select {
 		case <-quit:
-			fmt.Println("Got shutdown, exiting")
-			break loop
-		case <-msg:
-			fmt.Println("kukkuu")
-		}*/
+			return
+		case <-time.After(100 * time.Millisecond):
+			// continue to next message
+		}
 	}
-
-	fmt.Printf("Shutting down!! \n")
-
-	myMsg.DestroyMessage()
-	err = mySub.SubscriptionFini(node)
-	if err != nil {
-		log.Fatalf("SubscriptionFini: %s", err)
-	}
-
 }
-
-
 
 func main() {
 	flag.Parse()
@@ -253,10 +261,8 @@ func main() {
 	mqttClient := createMQTTClient()
 	defer mqttClient.Disconnect(1000)
 
-
 	// start the gps message listener
-	go handleGpsMesssages(node, quit, mqttClient)
-
+	go handleGpsMesssages(node, mqttClient, quit)
 
 	log.Printf("Wait for mqtt messages..")
 	commandTopic := fmt.Sprintf("/devices/%s/commands/", *DeviceID)
@@ -279,6 +285,9 @@ func main() {
 	// wait for quit signal
 	<-quit
 
+	// wait a while to allow other goroutines to exit
+	time.Sleep(100 * time.Millisecond)
+
 	err = node.Fini()
 	if err != nil {
 		log.Fatalf("Could not finalize node: %v", err)
@@ -300,7 +309,7 @@ func createMQTTClient() mqtt.Client {
 	log.Println("Client ID:", clientID)
 
 	// load private key
-	keyData, err := ioutil.ReadFile(PrivateKeyPath)
+	keyData, err := ioutil.ReadFile(*PrivateKeyPath)
 	if err != nil {
 		panic(err)
 	}
