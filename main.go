@@ -42,6 +42,7 @@ const (
 
 type ControlCommand struct {
 	Command   string
+	Payload   string
 	Timestamp time.Time
 }
 
@@ -69,6 +70,41 @@ func handleControlCommand(command string, msg types.StdMsgsString, pub rclgo.Pub
 		if err != nil {
 			log.Fatalf("Publish failed: %v", err)
 		}
+	case "start_mission":
+		log.Printf("Publishing 'start_mission' to /mavlinkcmd")
+		msg.SetText("start_mission")
+		err := pub.Publish(msg.GetMessage(), msg.GetData())
+		if err != nil {
+			log.Fatalf("Publish failed: %v", err)
+		}
+	case "pause_mission":
+		log.Printf("Publishing 'pause_mission' to /mavlinkcmd")
+		msg.SetText("pause_mission")
+		err := pub.Publish(msg.GetMessage(), msg.GetData())
+		if err != nil {
+			log.Fatalf("Publish failed: %v", err)
+		}
+	case "resume_mission":
+		log.Printf("Publishing 'resume_mission' to /mavlinkcmd")
+		msg.SetText("resume_mission")
+		err := pub.Publish(msg.GetMessage(), msg.GetData())
+		if err != nil {
+			log.Fatalf("Publish failed: %v", err)
+		}
+	case "return_home":
+		log.Printf("Publishing 'return_home' to /mavlinkcmd")
+		msg.SetText("return_home")
+		err := pub.Publish(msg.GetMessage(), msg.GetData())
+		if err != nil {
+			log.Fatalf("Publish failed: %v", err)
+		}
+	//case "plan":
+	//	log.Printf("Publishing 'plan' to /mavlinkcmd")
+	//	msg.SetText("plan")
+	//	err := pub.Publish(msg.GetMessage(), msg.GetData())
+	//	if err != nil {
+	//		log.Fatalf("Publish failed: %v", err)
+	//	}
 	default:
 		log.Printf("Unknown command: %v", command)
 	}
@@ -134,7 +170,7 @@ func main() {
 
 	log.Println("Creating the node")
 
-	err = node.Init("GoPublisher", "", ctx, nodeOpts)
+	err = node.Init("CommunicationLink", "", ctx, nodeOpts)
 	if err != nil {
 		log.Fatalf("Could not initialize node: %v", err)
 	}
