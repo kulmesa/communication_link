@@ -1,22 +1,20 @@
 package main
 
 import (
+	"context"
 	"crypto/tls"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
 	"os/signal"
-	"strings"
+	"sync"
 	"syscall"
 	"time"
 
 	jwt "github.com/dgrijalva/jwt-go"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
-	"github.com/ssrc-tii/rclgo"
-	"github.com/ssrc-tii/rclgo/types"
 )
 
 const (
@@ -40,266 +38,43 @@ const (
 	Username  = "unused" // always this value in GCP
 )
 
-type ControlCommand struct {
-	Command   string
-	Payload   string
-	Timestamp time.Time
-}
-
-// handleControlCommand takes a command string and forwards it to mavlinkcmd
-func handleControlCommand(command string, msg types.StdMsgsString, pub rclgo.Publisher) {
-	var cmd ControlCommand
-	err := json.Unmarshal([]byte(command), &cmd)
-	if err != nil {
-		log.Printf("Could not unmarshal command: %v", err)
-		return
-	}
-
-	switch cmd.Command {
-	case "takeoff":
-		log.Printf("Publishing 'takeoff' to /mavlinkcmd")
-		msg.SetText("takeoff")
-		err := pub.Publish(msg.GetMessage(), msg.GetData())
-		if err != nil {
-			log.Fatalf("Publish failed: %v", err)
-		}
-	case "land":
-		log.Printf("Publishing 'land' to /mavlinkcmd")
-		msg.SetText("land")
-		err := pub.Publish(msg.GetMessage(), msg.GetData())
-		if err != nil {
-			log.Fatalf("Publish failed: %v", err)
-		}
-	case "start_mission":
-		log.Printf("Publishing 'start_mission' to /mavlinkcmd")
-		msg.SetText("start_mission")
-		err := pub.Publish(msg.GetMessage(), msg.GetData())
-		if err != nil {
-			log.Fatalf("Publish failed: %v", err)
-		}
-	case "pause_mission":
-		log.Printf("Publishing 'pause_mission' to /mavlinkcmd")
-		msg.SetText("pause_mission")
-		err := pub.Publish(msg.GetMessage(), msg.GetData())
-		if err != nil {
-			log.Fatalf("Publish failed: %v", err)
-		}
-	case "resume_mission":
-		log.Printf("Publishing 'resume_mission' to /mavlinkcmd")
-		msg.SetText("resume_mission")
-		err := pub.Publish(msg.GetMessage(), msg.GetData())
-		if err != nil {
-			log.Fatalf("Publish failed: %v", err)
-		}
-	case "return_home":
-		log.Printf("Publishing 'return_home' to /mavlinkcmd")
-		msg.SetText("return_home")
-		err := pub.Publish(msg.GetMessage(), msg.GetData())
-		if err != nil {
-			log.Fatalf("Publish failed: %v", err)
-		}
-	//case "plan":
-	//	log.Printf("Publishing 'plan' to /mavlinkcmd")
-	//	msg.SetText("plan")
-	//	err := pub.Publish(msg.GetMessage(), msg.GetData())
-	//	if err != nil {
-	//		log.Fatalf("Publish failed: %v", err)
-	//	}
-	default:
-		log.Printf("Unknown command: %v", command)
-	}
-}
-
-// handleControlCommands routine waits for commands and executes them. The routine quits when quit channel is closed
-func handleControlCommands(node rclgo.Node, commands <-chan string, quit <-chan struct{}) {
-	pub := rclgo.NewZeroInitializedPublisher()
-	pubOpts := rclgo.NewPublisherDefaultOptions()
-
-	var msg types.StdMsgsString
-	msg.InitMessage()
-	defer msg.DestroyMessage()
-
-	log.Println("Creating the publisher")
-
-	err := pub.Init(pubOpts, node, "/mavlinkcmd", msg.GetMessage())
-	if err != nil {
-		log.Fatalf("Could not initialide publisher: %v", err)
-	}
-	defer func() {
-		err = pub.PublisherFini(node)
-		if err != nil {
-			log.Fatalf("Could not finalize subscription: %v", err)
-		}
-	}()
-
-	for {
-		select {
-		case command := <-commands:
-			handleControlCommand(command, msg, pub)
-		case <-quit:
-			return
-		}
-	}
-
-}
-
-type Telemetry struct {
-	Coordinates Coordinates
-	DeviceId    string
-}
-type Coordinates struct {
-	Lat float64
-	Lng float64
-}
-type ROSCoordinates struct {
-	Lat float64 `json:"lat"`
-	Lon float64 `json:"lon"`
-}
-
-const (
-	qos    = 1
-	retain = false
-)
-
-func sendGPSLocation(mqttClient mqtt.Client, coordinates Coordinates) {
-	topic := fmt.Sprintf("/devices/%s/%s", *DeviceID, "events")
-	t := Telemetry{
-		Coordinates: coordinates,
-		DeviceId:    *DeviceID,
-	}
-	b, _ := json.Marshal(t)
-	mqttClient.Publish(topic, qos, retain, string(b))
-}
-
-func handleGpsMesssages(node rclgo.Node, mqttClient mqtt.Client, quit <-chan struct{}) {
-	sub := rclgo.NewZeroInitializedSubscription()
-	subOpts := rclgo.NewSubscriptionDefaultOptions()
-
-	msgType := types.GetMessageTypeFromStdMsgsString()
-
-	log.Println("Creating the subscriber")
-
-	err := sub.Init(subOpts, node, "/VehicleGlobalPosition_temp", msgType)
-	if err != nil {
-		log.Fatalf("Could not initialide subscription: %v", err)
-	}
-	defer func() {
-		err := sub.SubscriptionFini(node)
-		if err != nil {
-			log.Fatalf("SubscriptionFini: %v", err)
-		}
-	}()
-
-	//Creating the msg type
-	var msg types.StdMsgsString
-	msg.InitMessage()
-	defer msg.DestroyMessage()
-
-	for {
-		// check if any messages in topic
-		err := sub.TakeMessage(&msg.MsgInfo, msg.GetData())
-		if err == nil {
-			coordinates := msg.GetDataAsString()
-			log.Printf("got gps: %v", coordinates)
-			var rosCoord ROSCoordinates
-			err := json.Unmarshal([]byte(coordinates), &rosCoord)
-			if err != nil {
-				log.Printf("Could not parse coordinates: %v", err)
-			} else {
-				sendGPSLocation(mqttClient, Coordinates{rosCoord.Lat, rosCoord.Lon})
-			}
-		}
-
-		// check if time to quit
-		// or sleep a bit
-		select {
-		case <-quit:
-			return
-		case <-time.After(100 * time.Millisecond):
-			// continue to next message
-		}
-	}
-}
-
 func main() {
 	flag.Parse()
 	// attach sigint & sigterm listeners
 	terminationSignals := make(chan os.Signal, 1)
 	signal.Notify(terminationSignals, syscall.SIGINT, syscall.SIGTERM)
 
-	quit := make(chan struct{})
-	go func() {
-		// wait for termination and close quit to signal all
-		<-terminationSignals
-		log.Printf("Shuttding down..")
-		close(quit)
-	}()
+	// quitFunc will be called when process is terminated
+	ctx, quitFunc := context.WithCancel(context.Background())
 
-	// create context
-	ctx := rclgo.NewZeroInitializedContext()
-	err := ctx.Init()
-	if err != nil {
-		log.Fatalf("Could not initialize context: %v", err)
-	}
-	log.Println("Context initialized: test")
+	// wait group will make sure all goroutines have time to clean up
+	var wg sync.WaitGroup
 
-	node := rclgo.NewZeroInitializedNode()
-	nodeOpts := rclgo.NewNodeDefaultOptions()
-
-	log.Println("Creating the node")
-
-	err = node.Init("CommunicationLink", "", ctx, nodeOpts)
-	if err != nil {
-		log.Fatalf("Could not initialize node: %v", err)
-	}
-
-	controlCommands := make(chan string)
-
-	// start the control command handler
-	go handleControlCommands(node, controlCommands, quit)
-
-	mqttClient := createMQTTClient()
+	mqttClient := newMQTTClient()
 	defer mqttClient.Disconnect(1000)
 
-	// start the gps message listener
-	go handleGpsMesssages(node, mqttClient, quit)
+	rclCtx, closeContext := newROSContext()
+	defer closeContext()
 
-	log.Printf("Wait for mqtt messages..")
-	commandTopic := fmt.Sprintf("/devices/%s/commands/", *DeviceID)
-	token := mqttClient.Subscribe(fmt.Sprintf("%v#", commandTopic), 0, func(client mqtt.Client, msg mqtt.Message) {
-		subfolder := strings.TrimPrefix(msg.Topic(), commandTopic)
-		switch subfolder {
-		case "control":
-			log.Printf("Got control command: %v", string(msg.Payload()))
-			controlCommands <- string(msg.Payload())
-		case "mission":
-			log.Printf("Got mission command, not yet supported")
-		default:
-			log.Printf("Unknown command subfolder: %v", subfolder)
-		}
-	})
-	if err := token.Error(); err != nil {
-		log.Fatalf("Error on subscribe: %v", err)
-	}
+	node, closeNode := newROSNode(rclCtx, "CommunicationLink")
+	defer closeNode()
 
-	// wait for quit signal
-	<-quit
+	startTelemetry(ctx, &wg, node, mqttClient)
+	startCommandHandlers(ctx, &wg, node, mqttClient)
 
-	// wait a while to allow other goroutines to exit
-	time.Sleep(100 * time.Millisecond)
+	// wait for termination and close quit to signal all
+	<-terminationSignals
+	// cancel the main context
+	log.Printf("Shuttding down..")
+	quitFunc()
 
-	err = node.Fini()
-	if err != nil {
-		log.Fatalf("Could not finalize node: %v", err)
-	}
-
-	err = ctx.Shutdown()
-	if err != nil {
-		log.Fatalf("Shutdown not successfull: %v", err)
-	}
+	// wait until goroutines have done their cleanup
+	log.Printf("Waiting for routines to finish..")
+	wg.Wait()
+	log.Printf("Signing off - BYE")
 }
 
-func createMQTTClient() mqtt.Client {
+func newMQTTClient() mqtt.Client {
 
 	// generate MQTT client
 	clientID := fmt.Sprintf(
@@ -351,7 +126,7 @@ func createMQTTClient() mqtt.Client {
 	client := mqtt.NewClient(opts)
 
 	// connect to GCP Cloud IoT Core
-	log.Println("Connecting...")
+	log.Printf("Connecting MQTT...")
 	tok := client.Connect()
 	if err := tok.Error(); err != nil {
 		panic(err)
@@ -362,6 +137,7 @@ func createMQTTClient() mqtt.Client {
 	if err := tok.Error(); err != nil {
 		panic(err)
 	}
+	log.Printf("..Connected")
 
 	// need mqtt reconnect each 120 minutes for long use
 
