@@ -9,7 +9,7 @@
 
 using namespace std::chrono_literals;
 
-extern "C" {
+
 
 class MinimalPublisher : public rclcpp::Node
 {
@@ -35,6 +35,9 @@ class MinimalPublisher : public rclcpp::Node
     size_t count_;
 };
 
+#ifdef __cplusplus
+extern "C" {
+#endif
   int publish_(int argc, char * argv[])
   {
     rclcpp::init(argc, argv);
@@ -42,4 +45,6 @@ class MinimalPublisher : public rclcpp::Node
     rclcpp::shutdown();
     return 0;
   }
+#ifdef __cplusplus
 }
+#endif
