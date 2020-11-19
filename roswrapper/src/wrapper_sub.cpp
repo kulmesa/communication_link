@@ -16,7 +16,7 @@ class MinimalSubscriber : public rclcpp::Node
     MinimalSubscriber(void* callback)
     : Node("minimal_subscriber")
     {
-      go_callback = (void (*)())callback;
+      go_callback = (void (*)(int,void*))callback;
       subscription_ = this->create_subscription<px4_msgs::msg::VehicleGlobalPosition>(
           "VehicleGlobalPosition_PubSubTopic",
           10,
@@ -30,10 +30,12 @@ class MinimalSubscriber : public rclcpp::Node
     {
       RCLCPP_INFO(this->get_logger(), "lat: '%f'", msg->lat);
       RCLCPP_INFO(this->get_logger(), "lon: '%f'", msg->lon);
-      go_callback();
+      
+      go_callback(sizeof(px4_msgs::msg::VehicleGlobalPosition),(void*)&msg);
+      //go_callback(sizeof(px4_msgs__msg__VehicleGlobalPosition),(void*)&msg);
     }
     rclcpp::Subscription<px4_msgs::msg::VehicleGlobalPosition>::SharedPtr subscription_;
-    void (*go_callback)();
+    void (*go_callback)(int,void*);
 };
 
 #ifdef __cplusplus
