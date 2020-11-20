@@ -29,11 +29,16 @@ class MinimalSubscriber : public rclcpp::Node
   private:
     void topic_callback(const px4_msgs::msg::VehicleGlobalPosition::ConstSharedPtr msg) const
     {
+      RCLCPP_INFO(this->get_logger(), "timestamp: '%lld' ", (long long)msg->timestamp);
       RCLCPP_INFO(this->get_logger(), "lat: '%f'", msg->lat);
       RCLCPP_INFO(this->get_logger(), "lon: '%f'", msg->lon);
+
 //      const px4_msgs__msg__VehicleGlobalPosition* m = (const px4_msgs__msg__VehicleGlobalPosition*)msg; 
-      
-      go_callback(sizeof(&msg),(void*)&msg);
+      px4_msgs__msg__VehicleGlobalPosition tmpmsg;
+      tmpmsg.timestamp = msg->timestamp;
+      tmpmsg.lon = msg->lon;
+      tmpmsg.lat = msg->lat;
+      go_callback(sizeof(tmpmsg),(void*)&tmpmsg);
       //go_callback(sizeof(px4_msgs__msg__VehicleGlobalPosition),(void*)&msg);
     }
     rclcpp::Subscription<px4_msgs::msg::VehicleGlobalPosition>::SharedPtr subscription_;
