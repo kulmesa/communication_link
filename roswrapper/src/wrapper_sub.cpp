@@ -4,6 +4,7 @@
 #include "rclcpp/rclcpp.hpp"
 #include "std_msgs/msg/string.hpp"
 #include "px4_msgs/msg/vehicle_global_position.hpp"
+#include "px4_msgs/msg/vehicle_global_position.h"
 
 using std::placeholders::_1;
 
@@ -30,8 +31,9 @@ class MinimalSubscriber : public rclcpp::Node
     {
       RCLCPP_INFO(this->get_logger(), "lat: '%f'", msg->lat);
       RCLCPP_INFO(this->get_logger(), "lon: '%f'", msg->lon);
+//      const px4_msgs__msg__VehicleGlobalPosition* m = (const px4_msgs__msg__VehicleGlobalPosition*)msg; 
       
-      go_callback(sizeof(px4_msgs::msg::VehicleGlobalPosition),(void*)&msg);
+      go_callback(sizeof(&msg),(void*)&msg);
       //go_callback(sizeof(px4_msgs__msg__VehicleGlobalPosition),(void*)&msg);
     }
     rclcpp::Subscription<px4_msgs::msg::VehicleGlobalPosition>::SharedPtr subscription_;
@@ -41,13 +43,13 @@ class MinimalSubscriber : public rclcpp::Node
 #ifdef __cplusplus
 extern "C" {
 #endif
-int subscribe_(int argc, void* callback)
+int subscribe(int argc, void* callback)
 {
   char* argv = "sub";
 //  void (*cb)() = (void (*)())callback;
-  rclcpp::init(argc, &argv);
+//  rclcpp::init(argc, &argv);
   rclcpp::spin(std::make_shared<MinimalSubscriber>(callback));
-  rclcpp::shutdown();
+//  rclcpp::shutdown();
   return 0;
 }
 #ifdef __cplusplus

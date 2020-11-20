@@ -38,11 +38,11 @@ class MinimalPublisher : public rclcpp::Node
 #ifdef __cplusplus
 extern "C" {
 #endif
-  int publish_(int argc, char * argv[])
+  int publish(int argc, char * argv[])
   {
-    rclcpp::init(argc, argv);
+//    rclcpp::init(argc, argv);
     rclcpp::spin(std::make_shared<MinimalPublisher>());
-    rclcpp::shutdown();
+//    rclcpp::shutdown();
     return 0;
   }
 #ifdef __cplusplus

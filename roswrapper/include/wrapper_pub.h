@@ -5,7 +5,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-    int publish_(int , char **);
+    int publish(int , char **);
 #ifdef __cplusplus
 }
 #endif 

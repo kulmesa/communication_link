@@ -25,6 +25,7 @@ func newROSContext() (rclgo.Context, func()) {
 	}
 }
 func newROSNode(rclCtx rclgo.Context, name string) (rclgo.Node, func()) {
+	InitRosContext()
 	node := rclgo.NewZeroInitializedNode()
 	nodeOpts := rclgo.NewNodeDefaultOptions()
 
@@ -36,6 +37,7 @@ func newROSNode(rclCtx rclgo.Context, name string) (rclgo.Node, func()) {
 
 	return node, func() {
 		log.Println("Node shutting down")
+		ShutdownRosContext()
 		err := node.Fini()
 		if err != nil {
 			log.Fatalf("Could not finalize node: %v", err)
@@ -48,6 +50,7 @@ func newROSSubscription(node rclgo.Node, topic string, msgType types.MessageType
 	subOpts := rclgo.NewSubscriptionDefaultOptions()
 
 	log.Printf("Creating subscriber for %s", topic)
+	go Subscribe()
 
 	err := sub.Init(subOpts, node, topic, msgType)
 	if err != nil {
@@ -66,6 +69,8 @@ func newROSPublisher(node rclgo.Node, topic string, msgType types.MessageTypeSup
 	pubOpts := rclgo.NewPublisherDefaultOptions()
 
 	log.Printf("Creating publisher for %s", topic)
+	//go Publish()
+
 
 	err := pub.Init(pubOpts, node, topic, msgType)
 	if err != nil {

@@ -1,4 +1,4 @@
-package main
+package types
 
 type VehicleGlobalPosition struct {
     Timestamp uint64

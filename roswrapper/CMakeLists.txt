@@ -28,7 +28,7 @@ find_package(px4_msgs REQUIRED)
 #ament_target_dependencies(gowrapper_sub rclcpp std_msgs px4_msgs)
 #target_include_directories(gowrapper_sub PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include )
 
-add_library(gowrapper SHARED src/wrapper_pub.cpp src/wrapper_sub.cpp)
+add_library(gowrapper SHARED src/wrapper_pub.cpp src/wrapper_sub.cpp src/wrapper_init.cpp)
 ament_target_dependencies(gowrapper rclcpp std_msgs px4_msgs)
 target_include_directories(gowrapper PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 

@@ -49,8 +49,6 @@ func main() {
 
 	// wait group will make sure all goroutines have time to clean up
 	var wg sync.WaitGroup
-	go Subscribe()
-//	go Publish()
 
 	mqttClient := newMQTTClient()
 	defer mqttClient.Disconnect(1000)
