@@ -40,9 +40,7 @@ extern "C" {
 #endif
   int publish(int argc, char * argv[])
   {
-//    rclcpp::init(argc, argv);
     rclcpp::spin(std::make_shared<MinimalPublisher>());
-//    rclcpp::shutdown();
     return 0;
   }
 #ifdef __cplusplus
