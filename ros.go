@@ -2,9 +2,9 @@ package main
 
 import (
 	"log"
-
 	"github.com/ssrc-tii/rclgo"
 	"github.com/ssrc-tii/rclgo/types"
+	types_ "github.com/ssrc-tii/fog_sw/ros2_ws/src/communication_link/types"
 )
 
 func newROSContext() (rclgo.Context, func()) {
@@ -49,8 +49,16 @@ func newROSSubscription(node rclgo.Node, topic string, msgType types.MessageType
 	sub := rclgo.NewZeroInitializedSubscription()
 	subOpts := rclgo.NewSubscriptionDefaultOptions()
 
+	messages := make (chan types_.VehicleGlobalPosition)
 	log.Printf("Creating subscriber for %s", topic)
-	go Subscribe()
+	go Subscribe(messages)
+
+	go func (){
+		for m:=range messages{
+			log.Printf("callback time:%d\n",  m.Timestamp) 
+			log.Printf("callback lat:%f\n" , m.Lat) 
+		}
+	}()
 
 	err := sub.Init(subOpts, node, topic, msgType)
 	if err != nil {
@@ -69,8 +77,7 @@ func newROSPublisher(node rclgo.Node, topic string, msgType types.MessageTypeSup
 	pubOpts := rclgo.NewPublisherDefaultOptions()
 
 	log.Printf("Creating publisher for %s", topic)
-	//go Publish()
-
+	go Publish()
 
 	err := pub.Init(pubOpts, node, topic, msgType)
 	if err != nil {
