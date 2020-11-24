@@ -43,7 +43,6 @@ var wg sync.WaitGroup
 
 //export GoCallback
 func GoCallback(size C.int, data unsafe.Pointer){
-	fmt.Println("GoCallback")
 	d := (*types.VehicleGlobalPosition)(data)
 	global_messages <- *d
 }
