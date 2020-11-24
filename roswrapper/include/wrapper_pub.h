@@ -6,7 +6,7 @@
 extern "C" {
 #endif
     void call_publish(void*, char* data);
-    int publish(void* callback,void* gopublisher);
+    int publish(void* callback,void* gopublisher, char* topic);
 #ifdef __cplusplus
 }
 #endif 

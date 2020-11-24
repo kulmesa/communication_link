@@ -24,8 +24,8 @@ static inline void shutdown_rclcpp_c(){
 	shutdown_rclcpp();
 }
 #include <roswrapper/include/wrapper_pub.h>
-static inline void publish_c(void* GoPublisher){
-	publish(&PublishCallback,GoPublisher);
+static inline void init_publisher(void* GoPublisher, char* topic){
+	publish(&PublishCallback,GoPublisher,topic);
 }
 static inline void do_publish_c(void* publisher, char* data){
 	call_publish(publisher, data);
@@ -39,7 +39,6 @@ import "C"
 import "unsafe"
 
 var global_messages chan <- types.VehicleGlobalPosition
-//var publisher_ptr unsafe.Pointer
 var wg sync.WaitGroup
 
 //export GoCallback
@@ -59,27 +58,27 @@ func ShutdownRosContext(){
 	C.shutdown_rclcpp_c()
 }
 
-type Publisher_ struct{
+type Publisher struct{
 	publisher_ptr unsafe.Pointer 
 }
 
-func InitPublisher_() *Publisher_{
+func InitPublisher(topic string) *Publisher{
 	fmt.Println("init publisher")
-	pub := new(Publisher_)
-	go C.publish_c(unsafe.Pointer(pub))
+	pub := new(Publisher)
+	go C.init_publisher(unsafe.Pointer(pub), C.CString(topic))
 	wg.Add(1)
 	wg.Wait()
 	return pub
 }
 
-func (p Publisher_) DoPublish(data string){
+func (p Publisher) DoPublish(data string){
 	fmt.Println("do publish")
 	C.do_publish_c(p.publisher_ptr,C.CString(data))
 }
 
 //export GoPublishCallback
 func GoPublishCallback( publisher unsafe.Pointer, gopublisher unsafe.Pointer){
-	gopub := (*Publisher_)(gopublisher)
+	gopub := (*Publisher)(gopublisher)
 	gopub.publisher_ptr = publisher
 	wg.Done()
 }
