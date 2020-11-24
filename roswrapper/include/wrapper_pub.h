@@ -5,13 +5,8 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-/*    typedef struct callback_ptrs{
-        void* object;
-        void* memberfn;
-        void* callit;
-    }callback_struct; */
-    void call_publish(void*);
-    int publish(int argc, void* callback);
+    void call_publish(void*, char* data);
+    int publish(void* callback,void* gopublisher);
 #ifdef __cplusplus
 }
 #endif 

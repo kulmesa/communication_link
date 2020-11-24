@@ -77,7 +77,8 @@ func newROSPublisher(node rclgo.Node, topic string, msgType types.MessageTypeSup
 	pubOpts := rclgo.NewPublisherDefaultOptions()
 
 	log.Printf("Creating publisher for %s", topic)
-	go Publish()
+	pub_ := InitPublisher_()
+	pub_.DoPublish("kuikkiui")
 
 	err := pub.Init(pubOpts, node, topic, msgType)
 	if err != nil {

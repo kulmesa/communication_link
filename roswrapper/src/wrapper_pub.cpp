@@ -17,10 +17,10 @@ class MinimalPublisher : public rclcpp::Node
     {
       publisher_ = this->create_publisher<std_msgs::msg::String>("topic", 10);
     }
-    void publish_callback()
+    void publish_callback(char* data)
     {
       auto message = std_msgs::msg::String();
-      message.data = "Hello, world! " + std::to_string(count_++);
+      message.data = data; //"Hello, world! " + std::to_string(count_++);
       RCLCPP_INFO(this->get_logger(), "Publishing: '%s'", message.data.c_str());
       publisher_->publish(message);
     }
@@ -34,20 +34,19 @@ class MinimalPublisher : public rclcpp::Node
 #ifdef __cplusplus
 extern "C" {
 #endif
-  static MinimalPublisher* xyz;
   typedef void (MinimalPublisher::*PublishFn)();
   #define CALL_MEMBER_FN(object,ptrToMember)  ((object).*(ptrToMember))
-  void call_publish(void* obj)
+  void call_publish(void* obj, char* data)
   {
     MinimalPublisher* publisher = (MinimalPublisher*)obj;
-    publisher->publish_callback();
+    publisher->publish_callback(data);
   }
 
-  int publish(int argc, void* callback)
+  int publish(void* callback, void* gopublisher)
   {
     auto publisher = std::make_shared<MinimalPublisher>(callback);
-    void (*go_callback)(void*) = (void (*)(void*))callback;
-    go_callback((void*)&(*publisher));
+    void (*go_callback)(void*,void*) = (void (*)(void*,void*))callback;
+    go_callback((void*)&(*publisher),gopublisher);
     rclcpp::spin(publisher);
     return 0;
   }
