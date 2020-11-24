@@ -83,10 +83,6 @@ func startCommandHandlers(ctx context.Context, wg *sync.WaitGroup, mqttClient mq
 	log.Printf("Subscribing to MQTT commands")
 	commandTopic := fmt.Sprintf("/devices/%s/commands/", *DeviceID)
 	token := mqttClient.Subscribe(fmt.Sprintf("%v#", commandTopic), 0, func(client mqtt.Client, msg mqtt.Message) {
-
-		log.Printf("msg: %s", msg)
-		log.Printf("msg.Topic: %s", msg.Topic)
-		log.Printf("msg.Payload: %s", msg.Payload)
 		subfolder := strings.TrimPrefix(msg.Topic(), commandTopic)
 		switch subfolder {
 		case "control":
