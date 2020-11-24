@@ -3,6 +3,7 @@ import (
 	"fmt"
 	types "github.com/ssrc-tii/fog_sw/ros2_ws/src/communication_link/types"
 	"sync"
+	"strings"
 )
 
 /*
@@ -24,8 +25,8 @@ static inline void shutdown_rclcpp_c(){
 	shutdown_rclcpp();
 }
 #include <roswrapper/include/wrapper_pub.h>
-static inline void init_publisher(void* GoPublisher, char* topic){
-	publish(&PublishCallback,GoPublisher,topic);
+static inline void init_publisher(void* GoPublisher, char* topic, char* pub_name){
+	publish(&PublishCallback,GoPublisher,topic, pub_name);
 }
 static inline void do_publish_c(void* publisher, char* data){
 	call_publish(publisher, data);
@@ -64,7 +65,8 @@ type Publisher struct{
 func InitPublisher(topic string) *Publisher{
 	fmt.Println("init publisher")
 	pub := new(Publisher)
-	go C.init_publisher(unsafe.Pointer(pub), C.CString(topic))
+	pub_name := "pub_" + strings.ReplaceAll(topic,"/","")
+	go C.init_publisher(unsafe.Pointer(pub), C.CString(topic), C.CString(pub_name))
 	wg.Add(1)
 	wg.Wait()
 	return pub
