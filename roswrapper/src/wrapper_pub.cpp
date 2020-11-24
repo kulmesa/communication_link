@@ -12,7 +12,7 @@ using namespace std::chrono_literals;
 class MinimalPublisher : public rclcpp::Node
 {
   public:
-    MinimalPublisher(void* callback, char* topic)
+    MinimalPublisher(char* topic)
     : Node("minimal_publisher"), count_(0)
     {
       publisher_ = this->create_publisher<std_msgs::msg::String>(topic, 10);
@@ -34,8 +34,6 @@ class MinimalPublisher : public rclcpp::Node
 #ifdef __cplusplus
 extern "C" {
 #endif
-  typedef void (MinimalPublisher::*PublishFn)();
-  #define CALL_MEMBER_FN(object,ptrToMember)  ((object).*(ptrToMember))
   void call_publish(void* obj, char* data)
   {
     MinimalPublisher* publisher = (MinimalPublisher*)obj;
@@ -44,7 +42,7 @@ extern "C" {
 
   int publish(void* callback, void* gopublisher, char* topic)
   {
-    auto publisher = std::make_shared<MinimalPublisher>(callback, topic);
+    auto publisher = std::make_shared<MinimalPublisher>(topic);
     void (*go_callback)(void*,void*) = (void (*)(void*,void*))callback;
     go_callback((void*)&(*publisher),gopublisher);
     rclcpp::spin(publisher);

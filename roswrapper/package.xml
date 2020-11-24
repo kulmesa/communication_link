@@ -4,7 +4,7 @@
   <name>roswrapper</name>
   <version>0.0.0</version>
   <description>ROS pubsub wrapper for communication link</description>
-  <maintainer email="mika.rantanen@vaisto.io">mika</maintainer>
+  <maintainer email="mika.rantanen@solita.fi">mika</maintainer>
   <license>TODO: License declaration</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
