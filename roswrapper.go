@@ -9,6 +9,7 @@ import (
 /*
 #cgo LDFLAGS: ${SRCDIR}/roswrapper/build/libgowrapper.so
 #cgo LDFLAGS: -L${SRCDIR}/roswrapper/build
+#cgo LDFLAGS: -L/opt/ros/foxy/lib -Wl,-rpath=/opt/ros/foxy/lib -lrcl -lrosidl_runtime_c -lrosidl_typesupport_cpp -lrosidl_typesupport_c -lstd_msgs__rosidl_generator_c -lstd_msgs__rosidl_typesupport_c
 extern void GoCallback();
 static inline void Callback(int size, void* data){
 	GoCallback(size, data);
@@ -44,6 +45,7 @@ var wg sync.WaitGroup
 
 //export GoCallback
 func GoCallback(size C.int, data unsafe.Pointer){
+	fmt.Println("GoCallback ", size)
 	d := (*types.VehicleGlobalPosition)(data)
 	global_messages <- *d
 }

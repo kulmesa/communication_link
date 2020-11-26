@@ -20,6 +20,8 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(px4_msgs REQUIRED)
+find_package(ament_index_cpp REQUIRED)
+
 
 #add_executable(gowrapper_pub src/wrapper_pub.cpp)
 #ament_target_dependencies(gowrapper_pub rclcpp std_msgs)
@@ -28,8 +30,16 @@ find_package(px4_msgs REQUIRED)
 #ament_target_dependencies(gowrapper_sub rclcpp std_msgs px4_msgs)
 #target_include_directories(gowrapper_sub PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include )
 
-add_library(gowrapper SHARED src/wrapper_pub.cpp src/wrapper_sub.cpp src/wrapper_init.cpp)
-ament_target_dependencies(gowrapper rclcpp std_msgs px4_msgs)
+add_library(gowrapper SHARED src/wrapper_pub.cpp 
+      src/wrapper_sub.cpp
+      src/wrapper_init.cpp
+      src/generic_subscription.cpp
+      src/generic_publisher.cpp
+      src/rosbag2_node.cpp
+      src/qos.cpp
+      src/typesupport_helpers.cpp
+)
+ament_target_dependencies(gowrapper rclcpp std_msgs px4_msgs ament_index_cpp)
 target_include_directories(gowrapper PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 install(TARGETS
