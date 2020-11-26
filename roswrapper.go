@@ -33,8 +33,8 @@ static inline void do_publish_c(void* publisher, char* data){
 	call_publish(publisher, data);
 }
 #include <roswrapper/include/wrapper_sub.h>
-static inline void subscrice_c(){
-	subscribe(1,&Callback);
+static inline void subscrice_c(char* topic,char* msgtype, char* name){
+	subscribe(&Callback,topic,msgtype,name);
 }
 */
 import "C"
@@ -86,10 +86,11 @@ func GoPublishCallback( publisher unsafe.Pointer, gopublisher unsafe.Pointer){
 	wg.Done()
 }
 
-func Subscribe(messages chan <- types.VehicleGlobalPosition){
+func Subscribe(messages chan <- types.VehicleGlobalPosition,topic string, msgtype string){
 	fmt.Println("subscribing")
 	global_messages = messages
-	C.subscrice_c()
+	sub_name := "sub_" + strings.ReplaceAll(topic,"/","")
+	C.subscrice_c( C.CString(topic),  C.CString(msgtype),  C.CString(sub_name))
 }
 
 

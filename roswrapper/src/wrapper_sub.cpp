@@ -16,62 +16,32 @@
 
 using std::placeholders::_1;
 
-class MinimalSubscriber : public rclcpp::Node
-{
-  public:
-
-    MinimalSubscriber(void* callback)
-    : Node("minimal_subscriber")
-    {
-      go_callback = (void (*)(int,void*))callback;
-      subscription_ = this->create_subscription<px4_msgs::msg::VehicleGlobalPosition>(
-//      subscription_ = this->create_subscription<rclcpp::AnySubscriptionCallback>(
-          "VehicleGlobalPosition_PubSubTopic",
-          10,
-          [this](const px4_msgs::msg::VehicleGlobalPosition::ConstSharedPtr msg) {
-//          [this](const void* msg) {
-            this->topic_callback(msg);
-          });
-    }
-
-  private:
-    void topic_callback(const px4_msgs::msg::VehicleGlobalPosition::ConstSharedPtr msg) const
-    {
-      go_callback(sizeof(*msg),(void*)&(*msg));
-    }
-    rclcpp::Subscription<px4_msgs::msg::VehicleGlobalPosition>::SharedPtr subscription_;
-    void (*go_callback)(int,void*);
-};
-
 #ifdef __cplusplus
 extern "C" {
 #endif
 namespace rosbag2_transport
 {
-int subscribe(int argc, void* callback)
+int subscribe(void* callback, char* topic, char* msgtype, char* name)
 {
-  char* argv = "sub";
- // rclcpp::spin(std::make_shared<MinimalSubscriber>(callback));
-//  return 0;
-  auto node = std::make_shared<Rosbag2Node>("generic_subscriber");
+  auto node = std::make_shared<Rosbag2Node>(name);
   rclcpp::QoS qos = Rosbag2QoS::adapt_request_to_offers(
-    "/VehicleGlobalPosition_PubSubTopic", node->get_publishers_info_by_topic("/VehicleGlobalPosition_PubSubTopic"));
+    topic, node->get_publishers_info_by_topic(topic));
   Rosbag2QoS subscription_qos{qos};
   void (*go_callback)(int,void*);
   go_callback = (void (*)(int,void*))callback;
   auto subscription = node->create_generic_subscription(
-    "/VehicleGlobalPosition_PubSubTopic",
-    "px4_msgs/msg/VehicleGlobalPosition",
+    topic,
+    msgtype,
+//    "px4_msgs/msg/VehicleGlobalPosition",
     subscription_qos,
     [go_callback](std::shared_ptr<rclcpp::SerializedMessage> message) {
-//      auto serializer = rclcpp::Serialization<MessageT>();
         // In order to deserialize the message we have to manually create a ROS2
         // message in which we want to convert the serialized data.
         using MessageT = px4_msgs::msg::VehicleGlobalPosition;
-        MessageT string_msg;
+        MessageT deserialised_msg;
         auto serializer = rclcpp::Serialization<MessageT>();
-        serializer.deserialize_message(message.get(), &string_msg);
-        go_callback(sizeof(string_msg),(void*)&(string_msg));
+        serializer.deserialize_message(message.get(), &deserialised_msg);
+        go_callback(sizeof(deserialised_msg),(void*)&(deserialised_msg));
     });
   
   rclcpp::spin(node);
