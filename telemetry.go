@@ -42,7 +42,7 @@ func sendGPSLocation(mqttClient mqtt.Client, coordinates Coordinates) {
 }
 
 func handleGPSMessages(ctx context.Context, node rclgo.Node, mqttClient mqtt.Client) {
-	sub, closeSub := newROSSubscription(node, "/VehicleGlobalPosition_temp", types.GetMessageTypeFromStdMsgsString())
+	sub, closeSub := newROSSubscription(node, "VehicleGlobalPosition_temp", types.GetMessageTypeFromStdMsgsString())
 	defer closeSub()
 
 	//Creating the msg type

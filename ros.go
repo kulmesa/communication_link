@@ -24,12 +24,12 @@ func newROSContext() (rclgo.Context, func()) {
 		}
 	}
 }
-func newROSNode(rclCtx rclgo.Context, name string) (rclgo.Node, func()) {
+func newROSNode(rclCtx rclgo.Context, name string, namespace string) (rclgo.Node, func()) {
 	node := rclgo.NewZeroInitializedNode()
 	nodeOpts := rclgo.NewNodeDefaultOptions()
 
-	log.Println("Creating the node")
-	err := node.Init(name, "", rclCtx, nodeOpts)
+	log.Println("Creating the node '" + name + "' into namespace: '" + namespace + "'")
+	err := node.Init(name, namespace, rclCtx, nodeOpts)
 	if err != nil {
 		log.Fatalf("Could not initialize node: %v", err)
 	}

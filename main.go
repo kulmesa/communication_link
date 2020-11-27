@@ -56,7 +56,7 @@ func main() {
 	rclCtx, closeContext := newROSContext()
 	defer closeContext()
 
-	node, closeNode := newROSNode(rclCtx, "CommunicationLink")
+	node, closeNode := newROSNode(rclCtx, "CommunicationLink", *DeviceID)
 	defer closeNode()
 
 	startTelemetry(ctx, &wg, node, mqttClient)
