@@ -4,6 +4,7 @@ import (
 	types "github.com/ssrc-tii/fog_sw/ros2_ws/src/communication_link/types"
 	"sync"
 	"strings"
+	"unsafe"
 )
 
 /*
@@ -38,9 +39,10 @@ static inline void subscrice_c(char* topic,char* msgtype, char* name){
 }
 */
 import "C"
-import "unsafe"
+
 
 var global_messages chan <- types.VehicleGlobalPosition
+var global_str_messages chan <- string
 var wg sync.WaitGroup
 
 //export GoCallback
@@ -89,6 +91,12 @@ func GoPublishCallback( publisher unsafe.Pointer, gopublisher unsafe.Pointer){
 func Subscribe(messages chan <- types.VehicleGlobalPosition,topic string, msgtype string){
 	fmt.Println("subscribing")
 	global_messages = messages
+	sub_name := "sub_" + strings.ReplaceAll(topic,"/","")
+	C.subscrice_c( C.CString(topic),  C.CString(msgtype),  C.CString(sub_name))
+}
+func SubscribeStr(messages chan <- string,topic string, msgtype string){
+	fmt.Println("subscribing")
+	global_str_messages = messages
 	sub_name := "sub_" + strings.ReplaceAll(topic,"/","")
 	C.subscrice_c( C.CString(topic),  C.CString(msgtype),  C.CString(sub_name))
 }

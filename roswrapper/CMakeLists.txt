@@ -38,6 +38,7 @@ add_library(gowrapper SHARED src/wrapper_pub.cpp
       src/rosbag2_node.cpp
       src/qos.cpp
       src/typesupport_helpers.cpp
+#      serialization_format_converter_factory.cpp
 )
 ament_target_dependencies(gowrapper rclcpp std_msgs px4_msgs ament_index_cpp)
 target_include_directories(gowrapper PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
