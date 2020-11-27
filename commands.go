@@ -88,7 +88,7 @@ func handleControlCommand(command string, msg types.StdMsgsString, pub rclgo.Pub
 func handleControlCommands(ctx context.Context, wg *sync.WaitGroup, node rclgo.Node, commands <-chan string) {
 	wg.Add(1)
 	defer wg.Done()
-	pub, closePub := newROSPublisher(node, "/mavlinkcmd", types.GetMessageTypeFromStdMsgsString())
+	pub, closePub := newROSPublisher(node, "mavlinkcmd", types.GetMessageTypeFromStdMsgsString())
 	defer closePub()
 
 	var msg types.StdMsgsString
