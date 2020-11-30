@@ -13,8 +13,8 @@ import (
 #cgo LDFLAGS: -L${SRCDIR}/roswrapper/build
 #cgo LDFLAGS: -L/opt/ros/foxy/lib -Wl,-rpath=/opt/ros/foxy/lib -lrcl -lrosidl_runtime_c -lrosidl_typesupport_cpp -lrosidl_typesupport_c -lstd_msgs__rosidl_generator_c -lstd_msgs__rosidl_typesupport_c
 extern void GoCallback();
-static inline void Callback(int size, void* data, void* name){
-	GoCallback(size, data, name);
+static inline void Callback(int size, void* data, void* name, int index){
+	GoCallback(size, data, name, index);
 }
 extern void GoPublishCallback();
 static inline void PublishCallback(void* cpublisher, void* gopublisher){
@@ -35,8 +35,8 @@ static inline void do_publish_c(void* publisher, char* data){
 	call_publish(publisher, data);
 }
 #include <roswrapper/include/wrapper_sub.h>
-static inline void subscrice_c(char* topic,char* msgtype, char* name){
-	subscribe(&Callback,topic,msgtype,name);
+static inline void subscrice_c(char* topic,char* msgtype, char* name, int index){
+	subscribe(&Callback,topic,msgtype,name, index);
 }
 */
 import "C"
@@ -91,6 +91,7 @@ type Subscriber struct{
 	msgtypestr string
 	chanType reflect.Type
 	chanValue reflect.Value
+	index int
 }
 var SubscriberArr []Subscriber
 
@@ -106,27 +107,39 @@ func InitSubscriber(messages interface{},topic string, msgtype string) *Subscrib
 	s.topic = topic
 	s.msgtypestr = msgtype
 	SubscriberArr = append(SubscriberArr,*s)
+	s.index = len(SubscriberArr)-1
 	return s
 }
 
 //func Subscribe(messages chan <- types.VehicleGlobalPosition,topic string, msgtype string){
 func (s Subscriber)DoSubscribe(/*messages interface{},topic string, msgtype string*/){
 	fmt.Println("subscribing")
-	C.subscrice_c( C.CString(s.topic),  C.CString(s.msgtypestr),  C.CString(s.name))
+	C.subscrice_c( C.CString(s.topic),  C.CString(s.msgtypestr),  C.CString(s.name), C.int(s.index))
 }
 
 //export GoCallback
-func GoCallback(size C.int, data unsafe.Pointer, name unsafe.Pointer){
-	fmt.Println("GoCallback ", size)
+func GoCallback(size C.int, data unsafe.Pointer, name unsafe.Pointer, index C.int){
+	fmt.Println("GoCallback size:%d , index:%d ", size, index)
+	sub := SubscriberArr[index]
 	n := C.GoString((*C.char)(name))
-	for _,sub := range SubscriberArr{
-		if sub.name == n{
-			msgType := sub.chanType.Elem()
-			fmt.Printf("%+v (%+v)\n", sub.chanType, msgType)
-			d := reflect.NewAt(msgType, data)
-			sub.chanValue.Send(reflect.Indirect(d))
+	if (sub.name==n){
+		msgType := sub.chanType.Elem()
+		fmt.Printf("%+v (%+v)\n", sub.chanType, msgType)
+		d := reflect.NewAt(msgType, data)
+		sub.chanValue.Send(reflect.Indirect(d))
+	}else{
+		//if name does not match, search correct sub from array
+		for _,s := range SubscriberArr{
+			if s.name == n{
+				msgType := s.chanType.Elem()
+				fmt.Printf("%+v (%+v)\n", s.chanType, msgType)
+				d := reflect.NewAt(msgType, data)
+				s.chanValue.Send(reflect.Indirect(d))
+			}
 		}
 	}
+
+
 }
 
 

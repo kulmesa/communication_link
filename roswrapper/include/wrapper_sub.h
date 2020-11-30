@@ -5,7 +5,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-    int subscribe(void* callback, char* topic, char* msgtype, char* name);
+    int subscribe(void* callback, char* topic, char* msgtype, char* name, int index);
 #ifdef __cplusplus
 }
 #endif    
