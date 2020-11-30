@@ -44,7 +44,6 @@ import "C"
 var global_messages chan <- types.VehicleGlobalPosition
 var global_str_messages chan <- string
 var wg sync.WaitGroup
-var mutex = &sync.Mutex{}
 
 func InitRosContext(){
 	fmt.Println("InitRosContext")

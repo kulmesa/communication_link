@@ -20,6 +20,7 @@
 #include <string>
 #include <tuple>
 #include <utility>
+#include <iostream>
 
 #include "ament_index_cpp/get_resources.hpp"
 #include "ament_index_cpp/get_package_prefix.hpp"
@@ -50,6 +51,7 @@ std::string get_typesupport_library_path(
   filename_extension = ".so";
   dynamic_library_folder = "/lib/";
 #endif
+  std::cout << "mikatestaa\n";
 
   std::string package_prefix;
   try {
@@ -103,6 +105,9 @@ get_typesupport_library(const std::string & type, const std::string & typesuppor
 {
   auto package_name = std::get<0>(extract_type_identifier(type));
   auto library_path = get_typesupport_library_path(package_name, typesupport_identifier);
+  std::cout << type << " " << typesupport_identifier <<  "\n";
+  std::cout << package_name << " " << library_path <<  "\n";
+
   return std::make_shared<rcpputils::SharedLibrary>(library_path);
 }
 
