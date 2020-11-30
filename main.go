@@ -55,8 +55,8 @@ func main() {
 
 	InitRosContext()
 	defer ShutdownRosContext()
-	startTelemetry(ctx, &wg/*, node*/, mqttClient)
-	startCommandHandlers(ctx, &wg /*, node*/, mqttClient)
+	startTelemetry(ctx, &wg, mqttClient)
+	startCommandHandlers(ctx, &wg, mqttClient)
 	//go tmptesting()
 
 	// wait for termination and close quit to signal all

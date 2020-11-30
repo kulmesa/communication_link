@@ -23,22 +23,23 @@ int subscribe(void* callback, char* topic, char* msgtype, char* name)
   rclcpp::QoS qos = Rosbag2QoS::adapt_request_to_offers(
     topic, node->get_publishers_info_by_topic(topic));
   Rosbag2QoS subscription_qos{qos};
-  void (*go_callback)(int,void*);
-  go_callback = (void (*)(int,void*))callback;
+  void (*go_callback)(int,void*, void*);
+  go_callback = (void (*)(int,void*, void*))callback;
+  auto library = rosbag2_cpp::get_typesupport_library(msgtype, "rosidl_typesupport_cpp");
+  auto typesupport = rosbag2_cpp::get_typesupport_handle(msgtype, "rosidl_typesupport_cpp", library);
+
   auto subscription = node->create_generic_subscription(
     topic,
     msgtype,
     subscription_qos,
-    [go_callback,msgtype](std::shared_ptr<rclcpp::SerializedMessage> message) {
+    [go_callback,msgtype,typesupport, name](std::shared_ptr<rclcpp::SerializedMessage> message) {
         // In order to deserialize the message we have to manually create a ROS2
         // message in which we want to convert the serialized data.
-        auto library = rosbag2_cpp::get_typesupport_library(msgtype, "rosidl_typesupport_cpp");
-        auto typesupport = rosbag2_cpp::get_typesupport_handle(msgtype, "rosidl_typesupport_cpp", library);
         const int msgsize = (*message).size();
-        uint8_t* deserialised_msg = (uint8_t*)malloc(msgsize);
+        char* deserialised_msg = (char*)malloc(msgsize);
         auto serializer = rclcpp::SerializationBase(typesupport);
         serializer.deserialize_message(message.get(), deserialised_msg);
-        go_callback(msgsize,(void*)(deserialised_msg));
+        go_callback(msgsize,(void*)(deserialised_msg), (void*)name);
         free(deserialised_msg);
     });
   

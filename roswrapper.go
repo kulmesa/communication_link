@@ -5,6 +5,7 @@ import (
 	"sync"
 	"strings"
 	"unsafe"
+	"reflect"
 )
 
 /*
@@ -12,8 +13,8 @@ import (
 #cgo LDFLAGS: -L${SRCDIR}/roswrapper/build
 #cgo LDFLAGS: -L/opt/ros/foxy/lib -Wl,-rpath=/opt/ros/foxy/lib -lrcl -lrosidl_runtime_c -lrosidl_typesupport_cpp -lrosidl_typesupport_c -lstd_msgs__rosidl_generator_c -lstd_msgs__rosidl_typesupport_c
 extern void GoCallback();
-static inline void Callback(int size, void* data){
-	GoCallback(size, data);
+static inline void Callback(int size, void* data, void* name){
+	GoCallback(size, data, name);
 }
 extern void GoPublishCallback();
 static inline void PublishCallback(void* cpublisher, void* gopublisher){
@@ -40,17 +41,10 @@ static inline void subscrice_c(char* topic,char* msgtype, char* name){
 */
 import "C"
 
-
 var global_messages chan <- types.VehicleGlobalPosition
 var global_str_messages chan <- string
 var wg sync.WaitGroup
-
-//export GoCallback
-func GoCallback(size C.int, data unsafe.Pointer){
-	fmt.Println("GoCallback ", size)
-	d := (*types.VehicleGlobalPosition)(data)
-	global_messages <- *d
-}
+var mutex = &sync.Mutex{}
 
 func InitRosContext(){
 	fmt.Println("InitRosContext")
@@ -62,6 +56,7 @@ func ShutdownRosContext(){
 	C.shutdown_rclcpp_c()
 }
 
+/////// Publisher ///////
 type Publisher struct{
 	publisher_ptr unsafe.Pointer 
 }
@@ -88,18 +83,52 @@ func GoPublishCallback( publisher unsafe.Pointer, gopublisher unsafe.Pointer){
 	wg.Done()
 }
 
-func Subscribe(messages chan <- types.VehicleGlobalPosition,topic string, msgtype string){
-	fmt.Println("subscribing")
-	global_messages = messages
-	sub_name := "sub_" + strings.ReplaceAll(topic,"/","")
-	C.subscrice_c( C.CString(topic),  C.CString(msgtype),  C.CString(sub_name))
+
+/////// Subscriber ///////
+type Subscriber struct{
+	name string
+	topic string
+	msgtypestr string
+	chanType reflect.Type
+	chanValue reflect.Value
 }
-func SubscribeStr(messages chan <- string,topic string, msgtype string){
-	fmt.Println("subscribing")
-	global_str_messages = messages
+var SubscriberArr []Subscriber
+
+func InitSubscriber(messages interface{},topic string, msgtype string) *Subscriber{
+	fmt.Println("init subscriber")
+	s := new(Subscriber)
+	s.chanType = reflect.TypeOf(messages)
+	s.chanValue = reflect.ValueOf(messages)
+	msgType := s.chanType.Elem()
+	fmt.Printf("%+v (%+v)\n", s.chanType, reflect.PtrTo(msgType))
 	sub_name := "sub_" + strings.ReplaceAll(topic,"/","")
-	C.subscrice_c( C.CString(topic),  C.CString(msgtype),  C.CString(sub_name))
+	s.name = sub_name
+	s.topic = topic
+	s.msgtypestr = msgtype
+	SubscriberArr = append(SubscriberArr,*s)
+	return s
 }
+
+//func Subscribe(messages chan <- types.VehicleGlobalPosition,topic string, msgtype string){
+func (s Subscriber)DoSubscribe(/*messages interface{},topic string, msgtype string*/){
+	fmt.Println("subscribing")
+	C.subscrice_c( C.CString(s.topic),  C.CString(s.msgtypestr),  C.CString(s.name))
+}
+
+//export GoCallback
+func GoCallback(size C.int, data unsafe.Pointer, name unsafe.Pointer){
+	fmt.Println("GoCallback ", size)
+	n := C.GoString((*C.char)(name))
+	for _,sub := range SubscriberArr{
+		if sub.name == n{
+			msgType := sub.chanType.Elem()
+			fmt.Printf("%+v (%+v)\n", sub.chanType, msgType)
+			d := reflect.NewAt(msgType, data)
+			sub.chanValue.Send(reflect.Indirect(d))
+		}
+	}
+}
+
 
 
 
