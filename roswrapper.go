@@ -41,7 +41,7 @@ static inline void do_publish_c(void* publisher, char* data){
 }
 
 //static inline int subscribe_(void* callback, char* topic, char* msgtype, char* name, int index,void * ts)
-static inline int subscribe_(char* topic, char* msgtype, char* name, int index,void * ts)
+static inline int subscribe_(char* topic, char* msgtype, char* name, int index,void* ts, int typesize)
 {
   rcl_context_t * context_ptr;
   rcl_node_t * node_ptr;
@@ -89,7 +89,7 @@ static inline int subscribe_(char* topic, char* msgtype, char* name, int index,v
     ret = rcl_take_serialized_message(&my_sub, &serialized_msg, NULL, NULL);
     usleep(100*1000);
 	if(ret == 0){
-		uint8_t* deserialised_msg = (char*)malloc(56);
+		uint8_t* deserialised_msg = (char*)malloc(typesize);
 		ret = rmw_deserialize(&serialized_msg, ts, deserialised_msg);
 		Callback(0,(void*)(deserialised_msg), (void*)name, index);
 		free (deserialised_msg);
@@ -183,8 +183,7 @@ func (s Subscriber)DoSubscribe(/*messages interface{},topic string, msgtype stri
 	msg := reflect.New(msgType)
 	method := msg.MethodByName("TypeSupport")
 	result := method.Call(nil)
-
-	C.subscribe_( C.CString(s.topic),  C.CString(s.msgtypestr),  C.CString(s.name), C.int(s.index), unsafe.Pointer(result[0].Pointer()))
+	C.subscribe_( C.CString(s.topic),  C.CString(s.msgtypestr),  C.CString(s.name), C.int(s.index), unsafe.Pointer(result[0].Pointer()), C.int(msgType.Size()))
 }
 
 //export GoCallback
