@@ -44,27 +44,14 @@ func handleGPSMessages(ctx context.Context, mqttClient mqtt.Client) {
 	log.Printf("Creating subscriber for %s", "VehicleGlobalPosition")
 	sub := InitSubscriber(messages, "/VehicleGlobalPosition_PubSubTopic","px4_msgs/msg/VehicleGlobalPosition")
 	go sub.DoSubscribe()
-//	pub := InitPublisher("/imkatestaa")
 	go func (){
 		for m:=range messages{
-//			pub.DoPublish("kikkuu")
 			log.Printf("Lon: %f,  Lat:%f",m.Lat, m.Lon)
 			sendGPSLocation(mqttClient, Coordinates{m.Lat, m.Lon})
 		}
 	}()
 }
 
-/*func tmptesting(){
-	messages := make (chan string)
-	log.Printf("Creating subscriber for %s", "imkatestaa")
-	go SubscribeStr(messages, "/imkatestaa","std_msgs/msg/String")
-	go func (){
-		for m:=range messages{
-			log.Printf("GOT MESSAGE :%s",m)
-		}
-	}()
-}
-*/
 func startTelemetry(ctx context.Context, wg *sync.WaitGroup, mqttClient mqtt.Client) {
 	wg.Add(1)
 	go func() {
