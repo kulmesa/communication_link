@@ -21,12 +21,6 @@ export GOPRIVATE=github.com/ssrc-tii
 Now we can build the application
 ```
 source ../../install/setup.bash
-cd roswrapper
-mkdir build && cd build
-cmake ..
-make
-cd ..
-export LD_LIBRARY_PATH=./roswrapper/build:$LD_LIBRARY_PATH
 go build
 ```
 
