@@ -10,8 +10,8 @@ import (
 )
 
 /*
-#cgo LDFLAGS: -L/opt/ros/foxy/lib -L/home/mika/fog/fog_docker/fog_sw/ros2_ws/install/px4_msgs/lib -Wl,-rpath=/opt/ros/foxy/lib -lrcl -lrosidl_runtime_c -lrosidl_typesupport_cpp -lrosidl_typesupport_c -lstd_msgs__rosidl_generator_c -lstd_msgs__rosidl_typesupport_c -lrcutils -lrmw_implementation -lpx4_msgs__rosidl_typesupport_c
-#cgo CFLAGS: -I/opt/ros/foxy/include -I/home/mika/fog/fog_docker/fog_sw/ros2_ws/install/px4_msgs/include/
+#cgo LDFLAGS: -L/opt/ros/foxy/lib -L${SRCDIR}/../../install/px4_msgs/lib -Wl,-rpath=/opt/ros/foxy/lib -lrcl -lrosidl_runtime_c -lrosidl_typesupport_cpp -lrosidl_typesupport_c -lstd_msgs__rosidl_generator_c -lstd_msgs__rosidl_typesupport_c -lrcutils -lrmw_implementation -lpx4_msgs__rosidl_typesupport_c
+#cgo CFLAGS: -I/opt/ros/foxy/include -I${SRCDIR}/../../install/px4_msgs/include/
 #include "px4_msgs/msg/vehicle_global_position.h"
 #include "rcl/subscription.h"
 #include "rcl/publisher.h"
@@ -144,7 +144,7 @@ static inline void* init_subscriber(char* topic, char* msgtype, char* name,void*
 //	rcl_serialized_message_t serialized_msg = rmw_get_zero_initialized_serialized_message();
 	sub->ser_msg_ptr = malloc(sizeof(rcl_serialized_message_t));
 	*sub->ser_msg_ptr = rmw_get_zero_initialized_serialized_message();
-	auto initial_capacity_ser = 0u;
+	int initial_capacity_ser = 0u;
 	rmw_serialized_message_init(sub->ser_msg_ptr, initial_capacity_ser, &sub->allocator);
 
 	return (void*)sub;
