@@ -53,11 +53,8 @@ func main() {
 	mqttClient := newMQTTClient()
 	defer mqttClient.Disconnect(1000)
 
-	InitRosContext()
-	defer ShutdownRosContext()
 	startTelemetry(ctx, &wg, mqttClient)
 	startCommandHandlers(ctx, &wg, mqttClient)
-
 
 	// wait for termination and close quit to signal all
 	<-terminationSignals
