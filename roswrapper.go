@@ -39,7 +39,7 @@ typedef struct Publisher_C {
 	 rcl_publisher_t_ptr pub_ptr;
 } publisher_t;
 
-static inline void* init_publisher(char* topic, char* pub_name){
+static inline void* init_publisher(char* topic, char* pub_name, char* namespace){
 
 	publisher_t* pub =malloc(sizeof(publisher_t));
 	rcl_ret_t ret;
@@ -58,7 +58,7 @@ static inline void* init_publisher(char* topic, char* pub_name){
 	pub->node_ptr = malloc(sizeof(rcl_node_t));
 	*pub->node_ptr = rcl_get_zero_initialized_node();
 	pub->node_options = rcl_node_get_default_options();
-	ret = rcl_node_init(pub->node_ptr, pub_name, "", pub->ctx_ptr, &pub->node_options);
+	ret = rcl_node_init(pub->node_ptr, pub_name, namespace, pub->ctx_ptr, &pub->node_options);
 	if (ret != RCL_RET_OK) {
 		printf("Failed to create node.\n");
 //		return -1;
@@ -97,7 +97,7 @@ typedef struct Subscriber_C {
 	 rcl_serialized_message_t_ptr ser_msg_ptr;
 } subscriber_t;
 
-static inline void* init_subscriber(char* topic, char* msgtype, char* name,void* ts)
+static inline void* init_subscriber(char* topic, char* msgtype, char* name,void* ts, char* ns)
 {
 //  rcl_context_t * context_ptr;
 //  rcl_node_t * node_ptr;
@@ -121,7 +121,7 @@ static inline void* init_subscriber(char* topic, char* msgtype, char* name,void*
 	sub->node_ptr = malloc(sizeof(rcl_node_t));
 	*sub->node_ptr = rcl_get_zero_initialized_node();
 	rcl_node_options_t node_options = rcl_node_get_default_options();
-	ret = rcl_node_init(sub->node_ptr, name, "", sub->ctx_ptr, &node_options);
+	ret = rcl_node_init(sub->node_ptr, name, ns, sub->ctx_ptr, &node_options);
 	if (ret != RCL_RET_OK) {
 		printf("Failed to create node.\n");
 //		return -1;
@@ -189,11 +189,13 @@ type Publisher struct{
 	publisher_ptr unsafe.Pointer
 }
 
-func InitPublisher(topic string) *Publisher{
-	fmt.Println("init publisher")
+func InitPublisher(topic string, namespace string ) *Publisher{
+	fmt.Println("init publisher " + namespace)
 	pub := new(Publisher)
-	pub_name := "pub_" + strings.ReplaceAll(topic,"/","")
-	pub.rcl_ptrs = (*rclc_pub_ptrs_t)(C.init_publisher(C.CString(topic), C.CString(pub_name)))
+	pub_name := "pub_"+ strings.ReplaceAll(topic,"/","")
+	ns := strings.ReplaceAll(namespace,"/","")
+	ns = strings.ReplaceAll(ns,"-","")
+	pub.rcl_ptrs = (*rclc_pub_ptrs_t)(C.init_publisher(C.CString(topic), C.CString(pub_name),C.CString(ns)))
 	return pub
 }
 
@@ -233,7 +235,7 @@ type Subscriber struct{
 }
 var SubscriberArr []Subscriber
 
-func InitSubscriber(messages interface{},topic string, msgtype string) *Subscriber{
+func InitSubscriber(messages interface{},topic string, msgtype string, namespace string) *Subscriber{
 	fmt.Println("init subscriber")
 	s := new(Subscriber)
 	s.chanType = reflect.TypeOf(messages)
@@ -250,8 +252,16 @@ func InitSubscriber(messages interface{},topic string, msgtype string) *Subscrib
 	msg := reflect.New(msgType)
 	method := msg.MethodByName("TypeSupport")
 	result := method.Call(nil)	
-	s.rcl_ptrs = (*rclc_sub_ptrs_t)(C.init_subscriber( C.CString(s.topic),  C.CString(s.msgtypestr),  C.CString(s.name), unsafe.Pointer(result[0].Pointer())))
-//	s.rcl_ptrs = (*rclc_sub_ptrs_t)(C.init_subscriber( C.CString(s.topic),  C.CString(s.msgtypestr),  C.CString(s.name), C.int(s.index), unsafe.Pointer(result[0].Pointer()), C.int(msgType.Size())))
+	ns := strings.ReplaceAll(namespace,"/","")
+	ns = strings.ReplaceAll(ns,"-","")
+
+	s.rcl_ptrs = (*rclc_sub_ptrs_t)(C.init_subscriber(
+		C.CString(s.topic),
+		C.CString(s.msgtypestr),
+		C.CString(s.name),
+		unsafe.Pointer(result[0].Pointer()),
+		C.CString(ns),
+		))
 	return s
 
 }

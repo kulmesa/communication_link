@@ -62,7 +62,7 @@ func handleControlCommand(command string, pub *Publisher) {
 func handleControlCommands(ctx context.Context, wg *sync.WaitGroup, commands <-chan string) {
 	wg.Add(1)
 	defer wg.Done()
-	pub := InitPublisher("/mavlinkcmd")
+	pub := InitPublisher("mavlinkcmd", *DeviceID)
 	for {
 		select {
 		case <-ctx.Done():
