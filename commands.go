@@ -66,6 +66,7 @@ func handleControlCommands(ctx context.Context, wg *sync.WaitGroup, commands <-c
 	for {
 		select {
 		case <-ctx.Done():
+			pub.Finish()
 			return
 		case command := <-commands:
 			handleControlCommand(command, pub)

@@ -9,8 +9,6 @@ import (
 )
 
 /*
-//#cgo LDFLAGS: ${SRCDIR}/roswrapper/build/libgowrapper.so
-//#cgo LDFLAGS: -L${SRCDIR}/roswrapper/build
 #cgo LDFLAGS: -L/opt/ros/foxy/lib -L/home/mika/fog/fog_docker/fog_sw/ros2_ws/install/px4_msgs/lib -Wl,-rpath=/opt/ros/foxy/lib -lrcl -lrosidl_runtime_c -lrosidl_typesupport_cpp -lrosidl_typesupport_c -lstd_msgs__rosidl_generator_c -lstd_msgs__rosidl_typesupport_c -lrcutils -lrmw_implementation -lpx4_msgs__rosidl_typesupport_c
 #cgo CFLAGS: -I/opt/ros/foxy/include -I/home/mika/fog/fog_docker/fog_sw/ros2_ws/install/px4_msgs/include/
 #include "px4_msgs/msg/vehicle_global_position.h"
@@ -23,17 +21,6 @@ import (
 extern void GoCallback();
 static inline void Callback(int size, void* data, void* name, int index){
 	GoCallback(size, data, name, index);
-}
-extern void GoPublishCallback();
-static inline void PublishCallback(void* cpublisher, void* gopublisher){
-	GoPublishCallback(cpublisher,gopublisher);
-}
-#include <roswrapper/include/wrapper_init.h>
-static inline void init_rclcpp_c(){
-//	init_rclcpp();
-}
-static inline void shutdown_rclcpp_c(){
-//	shutdown_rclcpp();
 }
 
 typedef rcl_context_t* rcl_context_t_ptr;
@@ -49,13 +36,10 @@ typedef struct Publisher_C {
 	 rcl_publisher_t_ptr pub_ptr;
 
 } publisher_t;
-#include <roswrapper/include/wrapper_pub.h>
-//static inline void init_publisher(void* GoPublisher, char* topic, char* pub_name){
+
 static inline void* init_publisher(char* topic, char* pub_name){
 
 	publisher_t* pub =malloc(sizeof(publisher_t));
-//	rcl_context_t * context_ptr;
-//	rcl_node_t * node_ptr;
 	rcl_ret_t ret;
 	pub->init_options = rcl_get_zero_initialized_init_options();
 	ret = rcl_init_options_init(&pub->init_options, rcl_get_default_allocator());
@@ -84,26 +68,24 @@ static inline void* init_publisher(char* topic, char* pub_name){
 	pub->pub_ptr = malloc(sizeof(rcl_publisher_t));
   	*pub->pub_ptr = rcl_get_zero_initialized_publisher();
   	pub->pub_options = rcl_publisher_get_default_options();
-//  const rosidl_message_type_support_t * ts = ROSIDL_GET_MSG_TYPE_SUPPORT(px4_msgs, msg, VehicleGlobalPosition);
    	const rosidl_message_type_support_t * ts = ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, String);
 	ret = rcl_publisher_init(pub->pub_ptr, pub->node_ptr, ts, topic, &pub->pub_options);
 	printf("init publisher after rcl_publisher_init\n"); 
-//	std_msgs__msg__String my_msg;
-//  	std_msgs__msg__String__init(&my_msg);
-//	const unsigned int PUB_MSG_SIZE = 20;
-//	char pub_string[PUB_MSG_SIZE];
-//	snprintf(pub_string, 13, "%s", "Hello World!");	 
-//    for (;;){
-//		rcl_publish(&publisher, &my_msg,NULL);
-//		usleep(2000*1000);
-//  	}
   	return (void*)pub;
 }
+
 static inline void do_publish_c(void* publisher, char* data){
-//	call_publish(publisher, data);
+	rcl_publisher_t* pub = (rcl_publisher_t*)publisher;
+	std_msgs__msg__String pub_msg;
+	std_msgs__msg__String__init(&pub_msg);
+	pub_msg.data.data = malloc(strlen(data)+1);
+	strcpy(pub_msg.data.data,data);
+	pub_msg.data.capacity = strlen(data)+1;
+	pub_msg.data.size = strlen(data);
+	rcl_publish(pub, &pub_msg,NULL);
+    std_msgs__msg__String__fini(&pub_msg);
 }
 
-//static inline int subscribe_(void* callback, char* topic, char* msgtype, char* name, int index,void * ts)
 static inline int subscribe_(char* topic, char* msgtype, char* name, int index,void* ts, int typesize)
 {
   rcl_context_t * context_ptr;
@@ -174,30 +156,14 @@ var global_messages chan <- types.VehicleGlobalPosition
 var global_str_messages chan <- string
 var wg sync.WaitGroup
 
-func InitRosContext(){
-	fmt.Println("InitRosContext")
-	C.init_rclcpp_c()
-}
-
-func ShutdownRosContext(){
-	fmt.Println("ShutdownRosContext")
-	C.shutdown_rclcpp_c()
-}
-
 /////// Publisher ///////
-/*typedef struct Publisher_C {
-	rcl_context_t_ptr ctx_ptr;
-	rcl_node_t_ptr node_ptr;
-	rcl_node_options_t node_options;
-	rcl_init_options_t init_options;
-	rcl_publisher_t_ptr pub_ptr;
-} publisher_t;*/
 type rclc_ptrs_t struct{
 	ctx_ptr C.rcl_context_t_ptr;
 	node_ptr C.rcl_node_t_ptr;
 	node_options C.rcl_node_options_t;
 	initopt C.rcl_init_options_t
-	publisher_ptr unsafe.Pointer 
+	publisher_options C.rcl_publisher_options_t
+	publisher_ptr C.rcl_publisher_t_ptr
 }
 
 type Publisher struct{
@@ -206,41 +172,30 @@ type Publisher struct{
 	chanType reflect.Type
 	chanValue reflect.Value
 	publisher_ptr unsafe.Pointer
-
-//	options unsafe.Pointer
-//	rmw_handle unsafe.Pointer
 }
 
 func InitPublisher(topic string) *Publisher{
 	fmt.Println("init publisher")
 	pub := new(Publisher)
 	pub_name := "pub_" + strings.ReplaceAll(topic,"/","")
-//	rcl_pub := C.rcl_get_zero_initialized_publisher()
-//	pub.publisher_ptr = unsafe.Pointer(&rcl_pub)
-//	fmt.Println(pub.ctx_ptr)
 	pub.rcl_ptrs = (*rclc_ptrs_t)(C.init_publisher(C.CString(topic), C.CString(pub_name)))
-	fmt.Println(pub.rcl_ptrs.ctx_ptr)
-//	go C.init_publisher(unsafe.Pointer(pub), C.CString(topic), C.CString(pub_name))
-//	wg.Add(1)
-//	wg.Wait()
 	return pub
 }
 
 func (p Publisher) DoPublish(data string){
-	fmt.Println("do publish")
-	C.do_publish_c(p.publisher_ptr,C.CString(data))
+	fmt.Println("do publish" , data)
+	C.do_publish_c(unsafe.Pointer(p.rcl_ptrs.publisher_ptr),C.CString(data))
 }
 
 func (p Publisher) Finish(){
 	//finish and clean rclc here
-}
-
-
-//export GoPublishCallback
-func GoPublishCallback( publisher unsafe.Pointer, gopublisher unsafe.Pointer){
-	gopub := (*Publisher)(gopublisher)
-	gopub.publisher_ptr = publisher
-	wg.Done()
+	C.rcl_publisher_fini(p.rcl_ptrs.publisher_ptr,p.rcl_ptrs.node_ptr)
+	C.free(unsafe.Pointer(p.rcl_ptrs.publisher_ptr))
+	C.rcl_node_fini(p.rcl_ptrs.node_ptr)
+	C.free(unsafe.Pointer(p.rcl_ptrs.node_ptr))
+	C.rcl_shutdown(p.rcl_ptrs.ctx_ptr)
+	C.rcl_context_fini(p.rcl_ptrs.ctx_ptr)
+	C.free(unsafe.Pointer(p.rcl_ptrs.ctx_ptr))
 }
 
 /////// Subscriber ///////
