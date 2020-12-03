@@ -14,6 +14,7 @@ static inline const rosidl_message_type_support_t * ts_(){
 import "C"
 type VehicleGlobalPosition struct {
     Timestamp uint64
+    Timestamp_sample uint64
     Lat float64
     Lon float64
     Alt float32
