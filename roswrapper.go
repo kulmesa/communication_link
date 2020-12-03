@@ -31,47 +31,57 @@ typedef rcl_subscription_t* rcl_subscription_t_ptr;
 typedef rcl_serialized_message_t* rcl_serialized_message_t_ptr;
 
 typedef struct Publisher_C {
-	 rcl_context_t_ptr ctx_ptr;
-	 rcl_node_t_ptr node_ptr;
-	 rcl_node_options_t node_options;
-	 rcl_init_options_t init_options;
+//	 rcl_context_t_ptr ctx_ptr;
+//	 rcl_node_t_ptr node_ptr;
+//	 rcl_node_options_t node_options;
+//	 rcl_init_options_t init_options;
 	 rcl_publisher_options_t pub_options;
 	 rcl_publisher_t_ptr pub_ptr;
 } publisher_t;
 
-static inline void* init_publisher(char* topic, char* pub_name, char* namespace){
-
-	publisher_t* pub =malloc(sizeof(publisher_t));
+static inline void* init_ros_ctx(){
 	rcl_ret_t ret;
-	pub->init_options = rcl_get_zero_initialized_init_options();
-	ret = rcl_init_options_init(&pub->init_options, rcl_get_default_allocator());
+	rcl_init_options_t init_options = rcl_get_zero_initialized_init_options();
+	ret = rcl_init_options_init(&init_options, rcl_get_default_allocator());
 	if (ret != RCL_RET_OK) {
 		printf("Failed to initialize.\n");
 	}
-	pub->ctx_ptr = malloc(sizeof(rcl_context_t));
-	*pub->ctx_ptr = rcl_get_zero_initialized_context();
-	ret = rcl_init(0, NULL, &pub->init_options, pub->ctx_ptr);
+	rcl_context_t_ptr ctx_ptr = malloc(sizeof(rcl_context_t));
+	*ctx_ptr = rcl_get_zero_initialized_context();
+	ret = rcl_init(0, NULL, &init_options, ctx_ptr);
 	if (ret != RCL_RET_OK) {
 		printf("Failed to initialize rcl.\n");
 	}
+	return (void*)ctx_ptr; 
+}
 
-	pub->node_ptr = malloc(sizeof(rcl_node_t));
-	*pub->node_ptr = rcl_get_zero_initialized_node();
-	pub->node_options = rcl_node_get_default_options();
-	ret = rcl_node_init(pub->node_ptr, pub_name, namespace, pub->ctx_ptr, &pub->node_options);
+static inline void* init_ros_node(void* ctx, char* name, char* namespace){
+	rcl_ret_t ret;
+	rcl_context_t_ptr ctx_ptr = (rcl_context_t_ptr)ctx;
+	rcl_node_t_ptr node_ptr = malloc(sizeof(rcl_node_t));
+	*node_ptr = rcl_get_zero_initialized_node();
+	rcl_node_options_t node_options = rcl_node_get_default_options();
+	ret = rcl_node_init(node_ptr, name, "", ctx_ptr, &node_options);
 	if (ret != RCL_RET_OK) {
 		printf("Failed to create node.\n");
-//		return -1;
 	}
 	printf("Node created\n");
+	return (void*)node_ptr; 
+}
 
+static inline void* init_publisher(void* ctx, void* node, char* topic){
+	printf("init publisher begin\n"); 
+	publisher_t* pub =malloc(sizeof(publisher_t));
+	rcl_ret_t ret;
+	rcl_context_t_ptr ctx_ptr = (rcl_context_t_ptr)ctx;
+	rcl_node_t_ptr node_ptr = (rcl_node_t_ptr)node;	
 	rcl_publisher_t publisher;
 	rcl_publisher_options_t publisher_options;
 	pub->pub_ptr = malloc(sizeof(rcl_publisher_t));
   	*pub->pub_ptr = rcl_get_zero_initialized_publisher();
   	pub->pub_options = rcl_publisher_get_default_options();
    	const rosidl_message_type_support_t * ts = ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, String);
-	ret = rcl_publisher_init(pub->pub_ptr, pub->node_ptr, ts, topic, &pub->pub_options);
+	ret = rcl_publisher_init(pub->pub_ptr, node_ptr, ts, topic, &pub->pub_options);
 	printf("init publisher after rcl_publisher_init\n"); 
   	return (void*)pub;
 }
@@ -90,78 +100,53 @@ static inline void do_publish_c(void* publisher, char* data){
 
 
 typedef struct Subscriber_C {
-	 rcl_context_t_ptr ctx_ptr;
-	 rcl_node_t_ptr node_ptr;
+//	 rcl_context_t_ptr ctx_ptr;
+//	 rcl_node_t_ptr node_ptr;
 	 rcl_subscription_t_ptr sub_ptr;
 	 rcutils_allocator_t allocator;
 	 rcl_serialized_message_t_ptr ser_msg_ptr;
 } subscriber_t;
 
-static inline void* init_subscriber(char* topic, char* msgtype, char* name,void* ts, char* ns)
+static inline void* init_subscriber(void* ctx, void* node, char* topic, char* msgtype,void* ts)
 {
-//  rcl_context_t * context_ptr;
-//  rcl_node_t * node_ptr;
 	subscriber_t* sub = malloc(sizeof(rcl_subscription_t));
-
 	rcl_ret_t ret;
-	rcl_init_options_t init_options = rcl_get_zero_initialized_init_options();
-	ret = rcl_init_options_init(&init_options, rcl_get_default_allocator());
-	if (ret != RCL_RET_OK) {
-		printf("Failed to initialize.\n");
-//		return -1;
-	}
-	sub->ctx_ptr = malloc(sizeof(rcl_context_t));
-	*sub->ctx_ptr = rcl_get_zero_initialized_context();
-	ret = rcl_init(0, NULL, &init_options, sub->ctx_ptr);
-	if (ret != RCL_RET_OK) {
-		printf("Failed to initialize rcl.\n");
-//		return -1;
-	}
+	rcl_context_t_ptr ctx_ptr = (rcl_context_t_ptr)ctx;
+	rcl_node_t_ptr node_ptr = (rcl_node_t_ptr)node;	
 
-	sub->node_ptr = malloc(sizeof(rcl_node_t));
-	*sub->node_ptr = rcl_get_zero_initialized_node();
-	rcl_node_options_t node_options = rcl_node_get_default_options();
-	ret = rcl_node_init(sub->node_ptr, name, ns, sub->ctx_ptr, &node_options);
-	if (ret != RCL_RET_OK) {
-		printf("Failed to create node.\n");
-//		return -1;
-	}
-
-//	const char * topic_ = "/VehicleGlobalPosition_PubSubTopic";
 	rcl_subscription_options_t subscription_options = rcl_subscription_get_default_options();
 	sub->allocator = rcutils_get_default_allocator();
 
-//	rcl_subscription_t my_sub = rcl_get_zero_initialized_subscription();
 	sub->sub_ptr = malloc(sizeof(rcl_subscription_t));
 	*sub->sub_ptr = rcl_get_zero_initialized_subscription();
 
-	ret = rcl_subscription_init (sub->sub_ptr, sub->node_ptr, (const rosidl_message_type_support_t*)ts, topic, &subscription_options);
+	ret = rcl_subscription_init (sub->sub_ptr, node_ptr, (const rosidl_message_type_support_t*)ts, topic, &subscription_options);
 	if (ret != RCL_RET_OK) {
 		printf("Failed to create subscriber.\n");
-//		return -1;
 	}
-
-//	rcl_serialized_message_t serialized_msg = rmw_get_zero_initialized_serialized_message();
 	sub->ser_msg_ptr = malloc(sizeof(rcl_serialized_message_t));
 	*sub->ser_msg_ptr = rmw_get_zero_initialized_serialized_message();
 	int initial_capacity_ser = 0u;
 	rmw_serialized_message_init(sub->ser_msg_ptr, initial_capacity_ser, &sub->allocator);
-
 	return (void*)sub;
 }
 
 static inline void* take_msg(void* sub, void* ser_msg, void* ts, int typesize,char* name, int index)
 {
-//	printf("take message called");
+	printf("take message called %d\n", typesize);
 	rcl_subscription_t* s = (rcl_subscription_t*)sub;
 	rcl_serialized_message_t* msg = (rcl_serialized_message_t*)ser_msg;
 	rcl_ret_t ret = rcl_take_serialized_message(s, msg, NULL, NULL);
 	if(ret == 0){
+		printf("take message 1\n");
 		uint8_t* deserialised_msg = (uint8_t*)malloc(typesize);
+		printf("take message 2\n");
 		ret = rmw_deserialize(msg, ts, deserialised_msg);
+		printf("take message 3\n");
 		Callback(0,(void*)(deserialised_msg), (void*)name, index);
+		printf("take message 4\n");
 		free (deserialised_msg);
-//		printf("%d\n", ret);
+		printf("%d\n", ret);
 	}
 }
 */
@@ -171,12 +156,36 @@ var global_messages chan <- types.VehicleGlobalPosition
 var global_str_messages chan <- string
 var wg sync.WaitGroup
 
+var	ctx_ptr C.rcl_context_t_ptr;
+var	pub_node_ptr C.rcl_node_t_ptr;
+var	sub_node_ptr C.rcl_node_t_ptr;
+
+func InitRosNode(namespace string){
+	fmt.Println("init sros")
+	ns := strings.ReplaceAll(namespace,"/","")
+	ns = strings.ReplaceAll(ns,"-","")
+	ctx_ptr = C.rcl_context_t_ptr(C.init_ros_ctx());
+	pub_node_ptr = C.rcl_node_t_ptr(C.init_ros_node(unsafe.Pointer(ctx_ptr), C.CString("communication_link_pub"),C.CString(ns)))
+	sub_node_ptr = C.rcl_node_t_ptr(C.init_ros_node(unsafe.Pointer(ctx_ptr), C.CString("communication_link_sub"),C.CString(ns)))
+}
+
+func ShutdownRosNode(){
+	fmt.Println("shutdown ros")
+	C.rcl_node_fini(pub_node_ptr)
+	C.free(unsafe.Pointer(pub_node_ptr))
+	C.rcl_node_fini(sub_node_ptr)
+	C.free(unsafe.Pointer(sub_node_ptr))
+	C.rcl_shutdown(ctx_ptr)
+	C.rcl_context_fini(ctx_ptr)
+	C.free(unsafe.Pointer(ctx_ptr))
+}
+
 /////// Publisher ///////
 type rclc_pub_ptrs_t struct{
-	ctx_ptr C.rcl_context_t_ptr;
-	node_ptr C.rcl_node_t_ptr;
-	node_options C.rcl_node_options_t;
-	initopt C.rcl_init_options_t
+//	ctx_ptr C.rcl_context_t_ptr;
+//	node_ptr C.rcl_node_t_ptr;
+//	node_options C.rcl_node_options_t;
+//	initopt C.rcl_init_options_t
 	publisher_options C.rcl_publisher_options_t
 	publisher_ptr C.rcl_publisher_t_ptr
 }
@@ -189,13 +198,13 @@ type Publisher struct{
 	publisher_ptr unsafe.Pointer
 }
 
-func InitPublisher(topic string, namespace string ) *Publisher{
-	fmt.Println("init publisher " + namespace)
+func InitPublisher(topic string) *Publisher{
+	fmt.Println("init publisher:" + topic)
 	pub := new(Publisher)
-	pub_name := "pub_"+ strings.ReplaceAll(topic,"/","")
-	ns := strings.ReplaceAll(namespace,"/","")
-	ns = strings.ReplaceAll(ns,"-","")
-	pub.rcl_ptrs = (*rclc_pub_ptrs_t)(C.init_publisher(C.CString(topic), C.CString(pub_name),C.CString(ns)))
+//	pub_name := "pub_"+ strings.ReplaceAll(topic,"/","")
+//	ns := strings.ReplaceAll(namespace,"/","")
+//	ns = strings.ReplaceAll(ns,"-","")
+	pub.rcl_ptrs = (*rclc_pub_ptrs_t)(C.init_publisher(unsafe.Pointer(ctx_ptr),unsafe.Pointer(pub_node_ptr), C.CString(topic)))
 	return pub
 }
 
@@ -206,19 +215,19 @@ func (p Publisher) DoPublish(data string){
 
 func (p Publisher) Finish(){
 	//finish and clean rclc here
-	C.rcl_publisher_fini(p.rcl_ptrs.publisher_ptr,p.rcl_ptrs.node_ptr)
+	C.rcl_publisher_fini(p.rcl_ptrs.publisher_ptr,pub_node_ptr)
 	C.free(unsafe.Pointer(p.rcl_ptrs.publisher_ptr))
-	C.rcl_node_fini(p.rcl_ptrs.node_ptr)
-	C.free(unsafe.Pointer(p.rcl_ptrs.node_ptr))
-	C.rcl_shutdown(p.rcl_ptrs.ctx_ptr)
-	C.rcl_context_fini(p.rcl_ptrs.ctx_ptr)
-	C.free(unsafe.Pointer(p.rcl_ptrs.ctx_ptr))
+//	C.rcl_node_fini(p.rcl_ptrs.node_ptr)
+//	C.free(unsafe.Pointer(p.rcl_ptrs.node_ptr))
+//	C.rcl_shutdown(p.rcl_ptrs.ctx_ptr)
+//	C.rcl_context_fini(p.rcl_ptrs.ctx_ptr)
+//	C.free(unsafe.Pointer(p.rcl_ptrs.ctx_ptr))
 }
 
 /////// Subscriber ///////
 type rclc_sub_ptrs_t struct{
-	ctx_ptr C.rcl_context_t_ptr;
-	node_ptr C.rcl_node_t_ptr;
+//	ctx_ptr C.rcl_context_t_ptr;
+//	node_ptr C.rcl_node_t_ptr;
 	subscription_ptr C.rcl_subscription_t_ptr
 	allocator C.rcutils_allocator_t
 	ser_msg_ptr C.rcl_serialized_message_t_ptr
@@ -235,7 +244,7 @@ type Subscriber struct{
 }
 var SubscriberArr []Subscriber
 
-func InitSubscriber(messages interface{},topic string, msgtype string, namespace string) *Subscriber{
+func InitSubscriber(messages interface{},topic string, msgtype string) *Subscriber{
 	fmt.Println("init subscriber")
 	s := new(Subscriber)
 	s.chanType = reflect.TypeOf(messages)
@@ -252,15 +261,15 @@ func InitSubscriber(messages interface{},topic string, msgtype string, namespace
 	msg := reflect.New(msgType)
 	method := msg.MethodByName("TypeSupport")
 	result := method.Call(nil)	
-	ns := strings.ReplaceAll(namespace,"/","")
-	ns = strings.ReplaceAll(ns,"-","")
+//	ns := strings.ReplaceAll(namespace,"/","")
+//	ns = strings.ReplaceAll(ns,"-","")
 
 	s.rcl_ptrs = (*rclc_sub_ptrs_t)(C.init_subscriber(
+		unsafe.Pointer(ctx_ptr),
+		unsafe.Pointer(sub_node_ptr),
 		C.CString(s.topic),
 		C.CString(s.msgtypestr),
-		C.CString(s.name),
 		unsafe.Pointer(result[0].Pointer()),
-		C.CString(ns),
 		))
 	return s
 
@@ -288,19 +297,20 @@ func (s Subscriber) Finish(){
 	//finish and clean rclc here
 	fmt.Println("Finish subscriber")
 	C.rmw_serialized_message_fini(s.rcl_ptrs.ser_msg_ptr);
-	C.rcl_subscription_fini(s.rcl_ptrs.subscription_ptr,s.rcl_ptrs.node_ptr)
+	C.rcl_subscription_fini(s.rcl_ptrs.subscription_ptr,sub_node_ptr)
 	C.free(unsafe.Pointer(s.rcl_ptrs.subscription_ptr))
-	C.rcl_node_fini(s.rcl_ptrs.node_ptr)
-	C.free(unsafe.Pointer(s.rcl_ptrs.node_ptr))
-	C.rcl_shutdown(s.rcl_ptrs.ctx_ptr)
-	C.rcl_context_fini(s.rcl_ptrs.ctx_ptr)
-	C.free(unsafe.Pointer(s.rcl_ptrs.ctx_ptr))
+//	C.rcl_node_fini(s.rcl_ptrs.node_ptr)
+//	C.free(unsafe.Pointer(s.rcl_ptrs.node_ptr))
+//	C.rcl_shutdown(s.rcl_ptrs.ctx_ptr)
+//	C.rcl_context_fini(s.rcl_ptrs.ctx_ptr)
+//	C.free(unsafe.Pointer(s.rcl_ptrs.ctx_ptr))
 	fmt.Println("Finished subscriber")
 }
 
 
 //export GoCallback
 func GoCallback(size C.int, data unsafe.Pointer, name unsafe.Pointer, index C.int){
+	fmt.Println("Callback")
 	sub := SubscriberArr[index]
 	n := C.GoString((*C.char)(name))
 	if (sub.name==n){

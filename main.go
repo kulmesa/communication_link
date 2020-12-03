@@ -53,6 +53,9 @@ func main() {
 	mqttClient := newMQTTClient()
 	defer mqttClient.Disconnect(1000)
 
+	InitRosNode(*DeviceID)
+	defer ShutdownRosNode()
+	time.Sleep(2*time.Second)
 	startTelemetry(ctx, &wg, mqttClient)
 	startCommandHandlers(ctx, &wg, mqttClient)
 

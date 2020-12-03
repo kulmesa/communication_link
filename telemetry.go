@@ -42,11 +42,11 @@ func sendGPSLocation(mqttClient mqtt.Client, coordinates Coordinates) {
 func handleGPSMessages(ctx context.Context, mqttClient mqtt.Client) {
 	messages := make (chan types.VehicleGlobalPosition)
 	log.Printf("Creating subscriber for %s", "VehicleGlobalPosition")
-	sub := InitSubscriber(messages, "VehicleGlobalPosition_PubSubTopic","px4_msgs/msg/VehicleGlobalPosition", *DeviceID)
+	sub := InitSubscriber(messages, "VehicleGlobalPosition_PubSubTopic","px4_msgs/msg/VehicleGlobalPosition")
 	go sub.DoSubscribe()
 	go func (){
 		for m:=range messages{
-//			log.Printf("Lon: %f,  Lat:%f",m.Lat, m.Lon)
+			log.Printf("Lon: %f,  Lat:%f",m.Lat, m.Lon)
 			sendGPSLocation(mqttClient, Coordinates{m.Lat, m.Lon})
 		}
 	}()
