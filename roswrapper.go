@@ -157,24 +157,20 @@ var global_str_messages chan <- string
 var wg sync.WaitGroup
 
 var	ctx_ptr C.rcl_context_t_ptr;
-var	pub_node_ptr C.rcl_node_t_ptr;
-var	sub_node_ptr C.rcl_node_t_ptr;
+var	node_ptr C.rcl_node_t_ptr;
 
 func InitRosNode(namespace string){
 	fmt.Println("init sros")
 	ns := strings.ReplaceAll(namespace,"/","")
 	ns = strings.ReplaceAll(ns,"-","")
 	ctx_ptr = C.rcl_context_t_ptr(C.init_ros_ctx());
-	pub_node_ptr = C.rcl_node_t_ptr(C.init_ros_node(unsafe.Pointer(ctx_ptr), C.CString("communication_link_pub"),C.CString(ns)))
-	sub_node_ptr = C.rcl_node_t_ptr(C.init_ros_node(unsafe.Pointer(ctx_ptr), C.CString("communication_link_sub"),C.CString(ns)))
+	node_ptr = C.rcl_node_t_ptr(C.init_ros_node(unsafe.Pointer(ctx_ptr), C.CString("communication_link_pub"),C.CString(ns)))
 }
 
 func ShutdownRosNode(){
 	fmt.Println("shutdown ros")
-	C.rcl_node_fini(pub_node_ptr)
-	C.free(unsafe.Pointer(pub_node_ptr))
-	C.rcl_node_fini(sub_node_ptr)
-	C.free(unsafe.Pointer(sub_node_ptr))
+	C.rcl_node_fini(node_ptr)
+	C.free(unsafe.Pointer(node_ptr))
 	C.rcl_shutdown(ctx_ptr)
 	C.rcl_context_fini(ctx_ptr)
 	C.free(unsafe.Pointer(ctx_ptr))
@@ -204,7 +200,7 @@ func InitPublisher(topic string) *Publisher{
 //	pub_name := "pub_"+ strings.ReplaceAll(topic,"/","")
 //	ns := strings.ReplaceAll(namespace,"/","")
 //	ns = strings.ReplaceAll(ns,"-","")
-	pub.rcl_ptrs = (*rclc_pub_ptrs_t)(C.init_publisher(unsafe.Pointer(ctx_ptr),unsafe.Pointer(pub_node_ptr), C.CString(topic)))
+	pub.rcl_ptrs = (*rclc_pub_ptrs_t)(C.init_publisher(unsafe.Pointer(ctx_ptr),unsafe.Pointer(node_ptr), C.CString(topic)))
 	return pub
 }
 
@@ -215,7 +211,7 @@ func (p Publisher) DoPublish(data string){
 
 func (p Publisher) Finish(){
 	//finish and clean rclc here
-	C.rcl_publisher_fini(p.rcl_ptrs.publisher_ptr,pub_node_ptr)
+	C.rcl_publisher_fini(p.rcl_ptrs.publisher_ptr,node_ptr)
 	C.free(unsafe.Pointer(p.rcl_ptrs.publisher_ptr))
 //	C.rcl_node_fini(p.rcl_ptrs.node_ptr)
 //	C.free(unsafe.Pointer(p.rcl_ptrs.node_ptr))
@@ -266,7 +262,7 @@ func InitSubscriber(messages interface{},topic string, msgtype string) *Subscrib
 
 	s.rcl_ptrs = (*rclc_sub_ptrs_t)(C.init_subscriber(
 		unsafe.Pointer(ctx_ptr),
-		unsafe.Pointer(sub_node_ptr),
+		unsafe.Pointer(node_ptr),
 		C.CString(s.topic),
 		C.CString(s.msgtypestr),
 		unsafe.Pointer(result[0].Pointer()),
@@ -297,7 +293,7 @@ func (s Subscriber) Finish(){
 	//finish and clean rclc here
 	fmt.Println("Finish subscriber")
 	C.rmw_serialized_message_fini(s.rcl_ptrs.ser_msg_ptr);
-	C.rcl_subscription_fini(s.rcl_ptrs.subscription_ptr,sub_node_ptr)
+	C.rcl_subscription_fini(s.rcl_ptrs.subscription_ptr,node_ptr)
 	C.free(unsafe.Pointer(s.rcl_ptrs.subscription_ptr))
 //	C.rcl_node_fini(s.rcl_ptrs.node_ptr)
 //	C.free(unsafe.Pointer(s.rcl_ptrs.node_ptr))
