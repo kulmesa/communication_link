@@ -60,7 +60,7 @@ static inline void* init_ros_node(void* ctx, char* name, char* namespace){
 	rcl_node_t_ptr node_ptr = malloc(sizeof(rcl_node_t));
 	*node_ptr = rcl_get_zero_initialized_node();
 	rcl_node_options_t node_options = rcl_node_get_default_options();
-	ret = rcl_node_init(node_ptr, name, "", ctx_ptr, &node_options);
+	ret = rcl_node_init(node_ptr, name, namespace, ctx_ptr, &node_options);
 	if (ret != RCL_RET_OK) {
 		printf("Failed to create node.\n");
 		return NULL;
