@@ -13,6 +13,7 @@ import (
 #cgo LDFLAGS: -L/opt/ros/foxy/lib -L${SRCDIR}/../../install/px4_msgs/lib -Wl,-rpath=/opt/ros/foxy/lib -lrcl -lrosidl_runtime_c -lrosidl_typesupport_cpp -lrosidl_typesupport_c -lstd_msgs__rosidl_generator_c -lstd_msgs__rosidl_typesupport_c -lrcutils -lrmw_implementation -lpx4_msgs__rosidl_typesupport_c
 #cgo CFLAGS: -I/opt/ros/foxy/include -I${SRCDIR}/../../install/px4_msgs/include/
 #include "px4_msgs/msg/vehicle_global_position.h"
+#include "rcutils/types/uint8_array.h"
 #include "rcl/subscription.h"
 #include "rcl/publisher.h"
 #include "rcl/rcl.h"
@@ -292,14 +293,9 @@ func (s Subscriber)DoSubscribe(/*messages interface{},topic string, msgtype stri
 func (s Subscriber) Finish(){
 	//finish and clean rclc here
 	fmt.Println("Finish subscriber")
-	C.rmw_serialized_message_fini(s.rcl_ptrs.ser_msg_ptr);
+	C.rcutils_uint8_array_fini(s.rcl_ptrs.ser_msg_ptr);
 	C.rcl_subscription_fini(s.rcl_ptrs.subscription_ptr,node_ptr)
 	C.free(unsafe.Pointer(s.rcl_ptrs.subscription_ptr))
-//	C.rcl_node_fini(s.rcl_ptrs.node_ptr)
-//	C.free(unsafe.Pointer(s.rcl_ptrs.node_ptr))
-//	C.rcl_shutdown(s.rcl_ptrs.ctx_ptr)
-//	C.rcl_context_fini(s.rcl_ptrs.ctx_ptr)
-//	C.free(unsafe.Pointer(s.rcl_ptrs.ctx_ptr))
 	fmt.Println("Finished subscriber")
 }
 
