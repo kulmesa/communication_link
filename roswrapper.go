@@ -287,7 +287,6 @@ func (s Subscriber) Finish(){
 
 //export GoCallback
 func GoCallback(size C.int, data unsafe.Pointer, name unsafe.Pointer, index C.int){
-	fmt.Println("Callback")
 	sub := SubscriberArr[index]
 	n := C.GoString((*C.char)(name))
 	if (sub.name==n){

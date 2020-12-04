@@ -46,7 +46,7 @@ func handleGPSMessages(ctx context.Context, mqttClient mqtt.Client) {
 	go sub.DoSubscribe()
 	go func (){
 		for m:=range messages{
-			log.Printf("Lon: %f,  Lat:%f",m.Lat, m.Lon)
+//			log.Printf("Lon: %f,  Lat:%f",m.Lat, m.Lon)
 			sendGPSLocation(mqttClient, Coordinates{m.Lat, m.Lon})
 		}
 	}()
