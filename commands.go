@@ -10,6 +10,7 @@ import (
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+	types "github.com/ssrc-tii/fog_sw/ros2_ws/src/communication_link/types"
 )
 
 type ControlCommand struct {
@@ -58,11 +59,32 @@ func handleControlCommand(command string, pub *Publisher) {
 	}
 }
 
+
+// handleMissionCommand takes a command string and forwards it to mavlinkcmd
+func handleMissionCommand(command string, pub *Publisher) {
+	var cmd ControlCommand
+	err := json.Unmarshal([]byte(command), &cmd)
+	if err != nil {
+		log.Printf("Could not unmarshal command: %v", err)
+		return
+	}
+	switch cmd.Command {
+	case "new_mission":
+		log.Printf("Publishing mission to where ever")
+		mission := new (types.PoseStamped)
+		pub.DoPublish(mission)
+	default:
+		log.Printf("Unknown command: %v", command)
+	}
+}
+
+
+
 // handleControlCommands routine waits for commands and executes them. The routine quits when quit channel is closed
 func handleControlCommands(ctx context.Context, wg *sync.WaitGroup, commands <-chan string) {
 	wg.Add(1)
 	defer wg.Done()
-	pub := InitPublisher("mavlinkcmd")
+	pub := InitPublisher("mavlinkcmd","std_msgs/msg/String")
 	for {
 		select {
 		case <-ctx.Done():
@@ -73,12 +95,30 @@ func handleControlCommands(ctx context.Context, wg *sync.WaitGroup, commands <-c
 		}
 	}
 }
+
+// handleMissionCommands routine waits for commands and executes them. The routine quits when quit channel is closed
+func handleMissionCommands(ctx context.Context, wg *sync.WaitGroup, commands <-chan string) {
+	wg.Add(1)
+	defer wg.Done()
+	pub := InitPublisher("whereever","nav_msgs/msg/Path")
+	for {
+		select {
+		case <-ctx.Done():
+			pub.Finish()
+			return
+		case command := <-commands:
+			handleMissionCommand(command, pub)
+		}
+	}
+}
+
 func startCommandHandlers(ctx context.Context, wg *sync.WaitGroup, mqttClient mqtt.Client) {
 
 	controlCommands := make(chan string)
-	//missionCommands := make(chan string)
+	missionCommands := make(chan string)
 
 	go handleControlCommands(ctx, wg, controlCommands)
+	go handleMissionCommands(ctx, wg, missionCommands)
 
 	log.Printf("Subscribing to MQTT commands")
 	commandTopic := fmt.Sprintf("/devices/%s/commands/", *DeviceID)
@@ -89,7 +129,8 @@ func startCommandHandlers(ctx context.Context, wg *sync.WaitGroup, mqttClient mq
 			log.Printf("Got control command: %v", string(msg.Payload()))
 			controlCommands <- string(msg.Payload())
 		case "mission":
-			log.Printf("Got mission command, not yet supported")
+			log.Printf("Got mission command")
+			missionCommands <- string(msg.Payload())
 		default:
 			log.Printf("Unknown command subfolder: %v", subfolder)
 		}

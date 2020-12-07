@@ -69,7 +69,7 @@ static inline void* init_ros_node(void* ctx, char* name, char* namespace){
 	return (void*)node_ptr; 
 }
 
-static inline void* init_publisher(void* ctx, void* node, char* topic){
+static inline void* init_publisher(void* ctx, void* node, char* topic, char* msgtype){
 	printf("init publisher begin\n"); 
 	publisher_t* pub =malloc(sizeof(publisher_t));
 	rcl_ret_t ret;
@@ -192,10 +192,10 @@ type Publisher struct{
 	publisher_ptr unsafe.Pointer
 }
 
-func InitPublisher(topic string) *Publisher{
+func InitPublisher(topic string, msgtype string) *Publisher{
 	fmt.Println("init publisher:" + topic)
 	pub := new(Publisher)
-	pub.rcl_ptrs = (*rclc_pub_ptrs_t)(C.init_publisher(unsafe.Pointer(ctx_ptr),unsafe.Pointer(node_ptr), C.CString(topic)))
+	pub.rcl_ptrs = (*rclc_pub_ptrs_t)(C.init_publisher(unsafe.Pointer(ctx_ptr),unsafe.Pointer(node_ptr), C.CString(topic), C.CString(msgtype) ))
 	return pub
 }
 
