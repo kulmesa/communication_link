@@ -53,14 +53,10 @@ func main() {
 	mqttClient := newMQTTClient()
 	defer mqttClient.Disconnect(1000)
 
-	rclCtx, closeContext := newROSContext()
-	defer closeContext()
-
-	node, closeNode := newROSNode(rclCtx, "CommunicationLink", *DeviceID)
-	defer closeNode()
-
-	startTelemetry(ctx, &wg, node, mqttClient)
-	startCommandHandlers(ctx, &wg, node, mqttClient)
+	InitRosNode(*DeviceID)
+	defer ShutdownRosNode()
+	startTelemetry(ctx, &wg, mqttClient)
+	startCommandHandlers(ctx, &wg, mqttClient)
 
 	// wait for termination and close quit to signal all
 	<-terminationSignals

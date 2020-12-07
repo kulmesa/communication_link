@@ -6,11 +6,9 @@ import (
 	"fmt"
 	"log"
 	"sync"
-	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
-	"github.com/ssrc-tii/rclgo"
-	"github.com/ssrc-tii/rclgo/types"
+	types "github.com/ssrc-tii/fog_sw/ros2_ws/src/communication_link/types"
 )
 
 const (
@@ -41,46 +39,30 @@ func sendGPSLocation(mqttClient mqtt.Client, coordinates Coordinates) {
 	mqttClient.Publish(topic, qos, retain, string(b))
 }
 
-func handleGPSMessages(ctx context.Context, node rclgo.Node, mqttClient mqtt.Client) {
-	sub, closeSub := newROSSubscription(node, "VehicleGlobalPosition_temp", types.GetMessageTypeFromStdMsgsString())
-	defer closeSub()
-
-	//Creating the msg type
-	var msg types.StdMsgsString
-	msg.InitMessage()
-	defer msg.DestroyMessage()
-
-	for {
-		// check for new messages
-		err := sub.TakeMessage(&msg.MsgInfo, msg.GetData())
-		if err == nil {
-			// have a new message
-			coordinates := msg.GetDataAsString()
-			var rosCoord ROSCoordinates
-			err := json.Unmarshal([]byte(coordinates), &rosCoord)
-			if err != nil {
-				log.Printf("Could not parse coordinates: %v", err)
-			} else {
-				sendGPSLocation(mqttClient, Coordinates{rosCoord.Lat, rosCoord.Lon})
-			}
+func handleGPSMessages(ctx context.Context, mqttClient mqtt.Client) {
+	messages := make (chan types.VehicleGlobalPosition)
+	log.Printf("Creating subscriber for %s", "VehicleGlobalPosition")
+	sub := InitSubscriber(messages, "VehicleGlobalPosition_PubSubTopic","px4_msgs/msg/VehicleGlobalPosition")
+	go sub.DoSubscribe()
+	go func (){
+		for m:=range messages{
+//			log.Printf("Lon: %f,  Lat:%f",m.Lat, m.Lon)
+			sendGPSLocation(mqttClient, Coordinates{m.Lat, m.Lon})
 		}
-
-		// check if time to quit
-		// or sleep a bit
+	}()
+	for {
 		select {
 		case <-ctx.Done():
+			sub.Finish()
 			return
-		case <-time.After(100 * time.Millisecond):
-			// continue to next message
 		}
 	}
 }
 
-func startTelemetry(ctx context.Context, wg *sync.WaitGroup, node rclgo.Node, mqttClient mqtt.Client) {
+func startTelemetry(ctx context.Context, wg *sync.WaitGroup, mqttClient mqtt.Client) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-
-		handleGPSMessages(ctx, node, mqttClient)
+		handleGPSMessages(ctx, mqttClient)
 	}()
 }

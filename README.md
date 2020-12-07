@@ -20,7 +20,7 @@ export GOPRIVATE=github.com/ssrc-tii
 
 Now we can build the application
 ```
-source /opt/ros/foxy/setup.bash
+source ../../install/setup.bash
 go build
 ```
 

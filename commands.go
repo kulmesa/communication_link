@@ -10,8 +10,6 @@ import (
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
-	"github.com/ssrc-tii/rclgo"
-	"github.com/ssrc-tii/rclgo/types"
 )
 
 type ControlCommand struct {
@@ -21,7 +19,7 @@ type ControlCommand struct {
 }
 
 // handleControlCommand takes a command string and forwards it to mavlinkcmd
-func handleControlCommand(command string, msg types.StdMsgsString, pub rclgo.Publisher) {
+func handleControlCommand(command string, pub *Publisher) {
 	var cmd ControlCommand
 	err := json.Unmarshal([]byte(command), &cmd)
 	if err != nil {
@@ -32,46 +30,22 @@ func handleControlCommand(command string, msg types.StdMsgsString, pub rclgo.Pub
 	switch cmd.Command {
 	case "takeoff":
 		log.Printf("Publishing 'takeoff' to /mavlinkcmd")
-		msg.SetText("takeoff")
-		err := pub.Publish(msg.GetMessage(), msg.GetData())
-		if err != nil {
-			log.Fatalf("Publish failed: %v", err)
-		}
+		pub.DoPublish("takeoff")
 	case "land":
 		log.Printf("Publishing 'land' to /mavlinkcmd")
-		msg.SetText("land")
-		err := pub.Publish(msg.GetMessage(), msg.GetData())
-		if err != nil {
-			log.Fatalf("Publish failed: %v", err)
-		}
+		pub.DoPublish("land")
 	case "start_mission":
 		log.Printf("Publishing 'start_mission' to /mavlinkcmd")
-		msg.SetText("start_mission")
-		err := pub.Publish(msg.GetMessage(), msg.GetData())
-		if err != nil {
-			log.Fatalf("Publish failed: %v", err)
-		}
+		pub.DoPublish("start_mission")
 	case "pause_mission":
 		log.Printf("Publishing 'pause_mission' to /mavlinkcmd")
-		msg.SetText("pause_mission")
-		err := pub.Publish(msg.GetMessage(), msg.GetData())
-		if err != nil {
-			log.Fatalf("Publish failed: %v", err)
-		}
+		pub.DoPublish("pause_mission")
 	case "resume_mission":
 		log.Printf("Publishing 'resume_mission' to /mavlinkcmd")
-		msg.SetText("resume_mission")
-		err := pub.Publish(msg.GetMessage(), msg.GetData())
-		if err != nil {
-			log.Fatalf("Publish failed: %v", err)
-		}
+		pub.DoPublish("resume_mission")
 	case "return_home":
 		log.Printf("Publishing 'return_home' to /mavlinkcmd")
-		msg.SetText("return_home")
-		err := pub.Publish(msg.GetMessage(), msg.GetData())
-		if err != nil {
-			log.Fatalf("Publish failed: %v", err)
-		}
+		pub.DoPublish("return_home")
 	//case "plan":
 	//	log.Printf("Publishing 'plan' to /mavlinkcmd")
 	//	msg.SetText("plan")
@@ -85,31 +59,26 @@ func handleControlCommand(command string, msg types.StdMsgsString, pub rclgo.Pub
 }
 
 // handleControlCommands routine waits for commands and executes them. The routine quits when quit channel is closed
-func handleControlCommands(ctx context.Context, wg *sync.WaitGroup, node rclgo.Node, commands <-chan string) {
+func handleControlCommands(ctx context.Context, wg *sync.WaitGroup, commands <-chan string) {
 	wg.Add(1)
 	defer wg.Done()
-	pub, closePub := newROSPublisher(node, "mavlinkcmd", types.GetMessageTypeFromStdMsgsString())
-	defer closePub()
-
-	var msg types.StdMsgsString
-	msg.InitMessage()
-	defer msg.DestroyMessage()
-
+	pub := InitPublisher("mavlinkcmd")
+	defer pub.Finish()
 	for {
 		select {
-		case <-ctx.Done():
+		case <-ctx.Done():		
 			return
 		case command := <-commands:
-			handleControlCommand(command, msg, pub)
+			handleControlCommand(command, pub)
 		}
 	}
 }
-func startCommandHandlers(ctx context.Context, wg *sync.WaitGroup, node rclgo.Node, mqttClient mqtt.Client) {
+func startCommandHandlers(ctx context.Context, wg *sync.WaitGroup, mqttClient mqtt.Client) {
 
 	controlCommands := make(chan string)
 	//missionCommands := make(chan string)
 
-	go handleControlCommands(ctx, wg, node, controlCommands)
+	go handleControlCommands(ctx, wg, controlCommands)
 
 	log.Printf("Subscribing to MQTT commands")
 	commandTopic := fmt.Sprintf("/devices/%s/commands/", *DeviceID)
