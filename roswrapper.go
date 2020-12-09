@@ -69,7 +69,7 @@ static inline void* init_ros_node(void* ctx, char* name, char* namespace){
 	return (void*)node_ptr; 
 }
 
-static inline void* init_publisher(void* ctx, void* node, char* topic, char* msgtype){
+static inline void* init_publisher(void* ctx, void* node, char* topic, char* msgtype, void* ts){
 	printf("init publisher begin\n"); 
 	publisher_t* pub =malloc(sizeof(publisher_t));
 	rcl_ret_t ret;
@@ -80,26 +80,21 @@ static inline void* init_publisher(void* ctx, void* node, char* topic, char* msg
 	pub->pub_ptr = malloc(sizeof(rcl_publisher_t));
   	*pub->pub_ptr = rcl_get_zero_initialized_publisher();
   	pub->pub_options = rcl_publisher_get_default_options();
-   	const rosidl_message_type_support_t * ts = ROSIDL_GET_MSG_TYPE_SUPPORT(nav_msgs, msg, Path);
+//   	const rosidl_message_type_support_t * ts = ROSIDL_GET_MSG_TYPE_SUPPORT(nav_msgs, msg, Path);
 //   	const rosidl_message_type_support_t * ts = ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, String);
-	ret = rcl_publisher_init(pub->pub_ptr, node_ptr, ts, topic, &pub->pub_options);
+//	ret = rcl_publisher_init(pub->pub_ptr, node_ptr,  ts, topic, &pub->pub_options);
+	ret = rcl_publisher_init(pub->pub_ptr, node_ptr,  (const rosidl_message_type_support_t*)ts, topic, &pub->pub_options);
 	printf("init publisher after rcl_publisher_init\n"); 
   	return (void*)pub;
 }
 
 //static inline void do_publish_c(void* publisher, char* data){
 static inline void do_publish_c(void* publisher, void* data, int size){
-	printf("no haloo\n");
-	printf("sizeof(size_t): %d\n", sizeof(size_t));
-	printf("sizeof(rosidl_runtime_c__String): %d\n", sizeof(rosidl_runtime_c__String));
-	printf("sizeof(geometry_msgs__msg__PoseStamped): %d\n", sizeof(geometry_msgs__msg__PoseStamped));
-
-
 	rcl_publisher_t* pub = (rcl_publisher_t*)publisher;
 //	std_msgs__msg__String pub_msg;
 //	std_msgs__msg__String__init(&pub_msg);
 	nav_msgs__msg__Path pub_msg;
-	nav_msgs__msg__Path__init(&pub_msg);
+//	nav_msgs__msg__Path__init(&pub_msg);
 //	pub_msg.poses.data = malloc(size*2);
 	pub_msg.header.frame_id.data = malloc(2);
 	pub_msg.header.frame_id.data = "1";
@@ -112,8 +107,6 @@ static inline void do_publish_c(void* publisher, void* data, int size){
 	pub_msg.poses.data = data;
 	pub_msg.poses.capacity = 1;
 	pub_msg.poses.size = 1;
-	printf("pub_msg.poses size:%d capacity:%d\n", pub_msg.poses.size, pub_msg.poses.capacity);
-	printf("pub_msg.poses[0].pose.position.x :%f y:%f\n", pub_msg.poses.data[0].pose.position.x,pub_msg.poses.data[0].pose.position.y);
 	rcl_ret_t ret = rcl_publish(pub, &pub_msg,NULL);
 //	rcl_ret_t ret = rcl_publish(pub, &data,NULL);
 	printf("After publish\n");
@@ -184,6 +177,10 @@ var wg sync.WaitGroup
 var	ctx_ptr C.rcl_context_t_ptr;
 var	node_ptr C.rcl_node_t_ptr;
 
+type TypeSupport interface{
+	TypeSupport() unsafe.Pointer
+}
+
 func InitRosNode(namespace string){
 	fmt.Println("init sros")
 	ns := strings.ReplaceAll(namespace,"/","")
@@ -215,10 +212,10 @@ type Publisher struct{
 	publisher_ptr unsafe.Pointer
 }
 
-func InitPublisher(topic string, msgtype string) *Publisher{
+func InitPublisher(topic string, msgtype string, typesupport TypeSupport) *Publisher{
 	fmt.Println("init publisher:" + topic)
 	pub := new(Publisher)
-	pub.rcl_ptrs = (*rclc_pub_ptrs_t)(C.init_publisher(unsafe.Pointer(ctx_ptr),unsafe.Pointer(node_ptr), C.CString(topic), C.CString(msgtype) ))
+	pub.rcl_ptrs = (*rclc_pub_ptrs_t)(C.init_publisher(unsafe.Pointer(ctx_ptr),unsafe.Pointer(node_ptr), C.CString(topic), C.CString(msgtype), typesupport.TypeSupport()))
 	return pub
 }
 
@@ -261,7 +258,7 @@ func (p Publisher) DoPublish(data string){
 */
 	//poses := [1]types.PoseStamped{}
 
-	poses := make([]types.PoseStamped,1)
+	poses := make([]types.PoseStamped,2)
 	
 	poses[0].Header.FrameId.Data = unsafe.Pointer(C.CString("map"))
 	poses[0].Header.FrameId.Size = 3
@@ -270,6 +267,13 @@ func (p Publisher) DoPublish(data string){
 	poses[0].Pose.Position.X = 1.0
 	poses[0].Pose.Position.Y = 2.0
 	poses[0].Pose.Position.Z = 3.0
+	poses[1].Header.FrameId.Data = unsafe.Pointer(C.CString("map"))
+	poses[1].Header.FrameId.Size = 3
+	poses[1].Header.FrameId.Capacity = 4
+	poses[1].Header.Stamp = types.Time{100000,1000000}
+	poses[1].Pose.Position.X = 1.0
+	poses[1].Pose.Position.Y = 2.0
+	poses[1].Pose.Position.Z = 3.0
 	fmt.Println("sizeof poses: " , unsafe.Sizeof(poses[0]))
 /*	fmt.Println("sizeof frameid: " , unsafe.Sizeof(poses[0].Header.FrameId))
 	fmt.Println("sizeof frameid.size: " , unsafe.Sizeof(poses[0].Header.FrameId.Size))
