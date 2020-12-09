@@ -10,7 +10,7 @@ import (
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
-	types "github.com/ssrc-tii/fog_sw/ros2_ws/src/communication_link/types"
+//	types "github.com/ssrc-tii/fog_sw/ros2_ws/src/communication_link/types"
 )
 
 type ControlCommand struct {
@@ -71,8 +71,8 @@ func handleMissionCommand(command string, pub *Publisher) {
 	switch cmd.Command {
 	case "new_mission":
 		log.Printf("Publishing mission to where ever")
-		mission := new (types.PoseStamped)
-		pub.DoPublish(mission)
+//		mission := new (types.PoseStamped)
+		pub.DoPublish("mission")
 	default:
 		log.Printf("Unknown command: %v", command)
 	}
@@ -85,6 +85,10 @@ func handleControlCommands(ctx context.Context, wg *sync.WaitGroup, commands <-c
 	wg.Add(1)
 	defer wg.Done()
 	pub := InitPublisher("mavlinkcmd","std_msgs/msg/String")
+	for i:=0 ; i<5; i++ {
+		time.Sleep(time.Second)
+		pub.DoPublish("mission")
+	}
 	for {
 		select {
 		case <-ctx.Done():

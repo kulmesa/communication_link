@@ -10,7 +10,7 @@ import (
 )
 
 /*
-#cgo LDFLAGS: -L/opt/ros/foxy/lib -L${SRCDIR}/../../install/px4_msgs/lib -Wl,-rpath=/opt/ros/foxy/lib -lrcl -lrosidl_runtime_c -lrosidl_typesupport_cpp -lrosidl_typesupport_c -lstd_msgs__rosidl_generator_c -lstd_msgs__rosidl_typesupport_c -lrcutils -lrmw_implementation -lpx4_msgs__rosidl_typesupport_c
+#cgo LDFLAGS: -L/opt/ros/foxy/lib -L${SRCDIR}/../../install/px4_msgs/lib -Wl,-rpath=/opt/ros/foxy/lib -lrcl -lrosidl_runtime_c -lrosidl_typesupport_c -lstd_msgs__rosidl_generator_c -lstd_msgs__rosidl_typesupport_c -lrcutils -lrmw_implementation -lpx4_msgs__rosidl_typesupport_c -lnav_msgs__rosidl_typesupport_c -lnav_msgs__rosidl_generator_c
 #cgo CFLAGS: -I/opt/ros/foxy/include -I${SRCDIR}/../../install/px4_msgs/include/
 #include "px4_msgs/msg/vehicle_global_position.h"
 #include "rcutils/types/uint8_array.h"
@@ -19,12 +19,12 @@ import (
 #include "rcl/rcl.h"
 #include "rcl/node.h"
 #include "std_msgs/msg/string.h"
+#include "nav_msgs/msg/path.h"
 
 extern void GoCallback();
 static inline void Callback(int size, void* data, void* name, int index){
 	GoCallback(size, data, name, index);
 }
-
 typedef rcl_context_t* rcl_context_t_ptr;
 typedef rcl_node_t* rcl_node_t_ptr;
 typedef rcl_publisher_t* rcl_publisher_t_ptr;
@@ -80,26 +80,49 @@ static inline void* init_publisher(void* ctx, void* node, char* topic, char* msg
 	pub->pub_ptr = malloc(sizeof(rcl_publisher_t));
   	*pub->pub_ptr = rcl_get_zero_initialized_publisher();
   	pub->pub_options = rcl_publisher_get_default_options();
-   	const rosidl_message_type_support_t * ts = ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, String);
+   	const rosidl_message_type_support_t * ts = ROSIDL_GET_MSG_TYPE_SUPPORT(nav_msgs, msg, Path);
+//   	const rosidl_message_type_support_t * ts = ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, String);
 	ret = rcl_publisher_init(pub->pub_ptr, node_ptr, ts, topic, &pub->pub_options);
 	printf("init publisher after rcl_publisher_init\n"); 
   	return (void*)pub;
 }
 
-static inline void do_publish_c(void* publisher, char* data){
+//static inline void do_publish_c(void* publisher, char* data){
+static inline void do_publish_c(void* publisher, void* data, int size){
+	printf("no haloo\n");
+	printf("sizeof(size_t): %d\n", sizeof(size_t));
+	printf("sizeof(rosidl_runtime_c__String): %d\n", sizeof(rosidl_runtime_c__String));
+	printf("sizeof(geometry_msgs__msg__PoseStamped): %d\n", sizeof(geometry_msgs__msg__PoseStamped));
+
+
 	rcl_publisher_t* pub = (rcl_publisher_t*)publisher;
-	std_msgs__msg__String pub_msg;
-	std_msgs__msg__String__init(&pub_msg);
-	pub_msg.data.data = malloc(strlen(data)+1);
-	strcpy(pub_msg.data.data,data);
-	pub_msg.data.capacity = strlen(data)+1;
-	pub_msg.data.size = strlen(data);
+//	std_msgs__msg__String pub_msg;
+//	std_msgs__msg__String__init(&pub_msg);
+	nav_msgs__msg__Path pub_msg;
+	nav_msgs__msg__Path__init(&pub_msg);
+//	pub_msg.poses.data = malloc(size*2);
+	pub_msg.header.frame_id.data = malloc(2);
+	pub_msg.header.frame_id.data = "1";
+	pub_msg.header.frame_id.size = 1;
+	pub_msg.header.frame_id.capacity = 2;
+	
+//	strcpy(pub_msg.data.data,data);
+
+//	memcpy(&pub_msg.poses.data[0],data,size);
+	pub_msg.poses.data = data;
+	pub_msg.poses.capacity = 1;
+	pub_msg.poses.size = 1;
+	printf("pub_msg.poses size:%d capacity:%d\n", pub_msg.poses.size, pub_msg.poses.capacity);
+	printf("pub_msg.poses[0].pose.position.x :%f y:%f\n", pub_msg.poses.data[0].pose.position.x,pub_msg.poses.data[0].pose.position.y);
 	rcl_ret_t ret = rcl_publish(pub, &pub_msg,NULL);
+//	rcl_ret_t ret = rcl_publish(pub, &data,NULL);
+	printf("After publish\n");
 	if (ret != RCL_RET_OK)
 	{
-		printf("Failed to publish: %s\n", data);
+		printf("Failed to publish: %d\n", ret);
 	}
-    std_msgs__msg__String__fini(&pub_msg);
+// 	nav_msgs__msg__Path__fini(&pub_msg);
+//  std_msgs__msg__String__fini(&pub_msg);
 }
 
 
@@ -200,8 +223,62 @@ func InitPublisher(topic string, msgtype string) *Publisher{
 }
 
 func (p Publisher) DoPublish(data string){
-	fmt.Println("do publish" , data)
-	C.do_publish_c(unsafe.Pointer(p.rcl_ptrs.publisher_ptr),C.CString(data))
+	fmt.Println("do publish:" , data)
+
+	// path = Path()
+	// path.header.stamp = rclpy.clock.Clock().now().to_msg()
+	// path.header.frame_id = "map"
+
+	// if no:
+	// 	print ("Publish single wp")
+	// 	# publish 1 wp
+	// 	pose = PoseStamped()
+	// 	pose.header.stamp = path.header.stamp # add time offset
+	// 	pose.header.frame_id = "map"
+	// 	point = Point()
+	// 	point.x = self.wp[no][0]
+	// 	point.y = self.wp[no][1]
+	// 	point.z = self.wp[no][2]
+	// 	pose.pose.position = point
+
+	// 	pose.pose.orientation.x,pose.pose.orientation.y,pose.pose.orientation.z,pose.pose.orientation.w = euler_to_quaternion(0,0,self.wp[no][3])
+	// 	path.poses.append(pose)
+
+	// 	#print('Publishing: "%s"' % path.poses)
+	// 	self.publisher.publish(path)
+
+//	path := new (types.Path)
+//	path.Hdr.FrameId = "TEST"
+//	wp := types.PoseStamped{}
+//	wp.Header.FrameId = "map"
+//	path.Poses = append(path.Poses,wp)
+
+/*	path.Poses[0].Header.FrameId = ""
+	path.Poses[0].Header.Stamp = types.Time{100000,1000000}
+	path.Poses[0].Pose.Position.X = 1.0
+	path.Poses[0].Pose.Position.Y = 2.0
+	path.Poses[0].Pose.Position.Z = 3.0
+*/
+	//poses := [1]types.PoseStamped{}
+
+	poses := make([]types.PoseStamped,1)
+	
+	poses[0].Header.FrameId.Data = unsafe.Pointer(C.CString("map"))
+	poses[0].Header.FrameId.Size = 3
+	poses[0].Header.FrameId.Capacity = 4
+	poses[0].Header.Stamp = types.Time{100000,1000000}
+	poses[0].Pose.Position.X = 1.0
+	poses[0].Pose.Position.Y = 2.0
+	poses[0].Pose.Position.Z = 3.0
+	fmt.Println("sizeof poses: " , unsafe.Sizeof(poses[0]))
+/*	fmt.Println("sizeof frameid: " , unsafe.Sizeof(poses[0].Header.FrameId))
+	fmt.Println("sizeof frameid.size: " , unsafe.Sizeof(poses[0].Header.FrameId.Size))
+	fmt.Println("sizeof frameid.cap: " , unsafe.Sizeof(poses[0].Header.FrameId.Capacity))
+	fmt.Println("sizeof &frameid.data: " , unsafe.Sizeof(&poses[0].Header.FrameId.Data))
+	fmt.Println("sizeof frameid.data: " , unsafe.Sizeof(poses[0].Header.FrameId.Data))
+*/
+//	C.do_publish_c(unsafe.Pointer(p.rcl_ptrs.publisher_ptr),C.CString(data))
+	C.do_publish_c(unsafe.Pointer(p.rcl_ptrs.publisher_ptr),unsafe.Pointer(&(poses[0])), C.int(unsafe.Sizeof(poses[0])))
 }
 
 func (p Publisher) Finish(){

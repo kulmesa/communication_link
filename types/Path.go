@@ -2,5 +2,5 @@ package types
 
 type Path struct {
     Header Header
-    Poses []PoseStamped
+    Poses [1]PoseStamped
 }
