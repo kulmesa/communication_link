@@ -1,7 +1,6 @@
 package types
 
 import "unsafe"
-import "fmt"
 
 /*
 #cgo LDFLAGS: -L/opt/ros/foxy/lib -Wl,-rpath=/opt/ros/foxy/lib -lrcl -lrosidl_runtime_c -lrosidl_typesupport_cpp -lrosidl_typesupport_c -lstd_msgs__rosidl_generator_c -lnav_msgs__rosidl_typesupport_c -lnav_msgs__rosidl_generator_c
@@ -19,6 +18,33 @@ type Path struct {
 }
 
 func (t* Path) TypeSupport() unsafe.Pointer{
-    fmt.Println("Path TypeSupport called")
     return unsafe.Pointer(C.ts_())
 }
+
+func (t* Path) GetData() unsafe.Pointer{
+    return unsafe.Pointer(&(t.Poses[0]))
+//    return t
+}
+
+func GeneratePath() *Path{
+    t := new(Path)
+	t.Poses = make([]PoseStamped,2)
+	
+	t.Poses[0].Header.FrameId.Data = unsafe.Pointer(C.CString("map"))
+	t.Poses[0].Header.FrameId.Size = 3
+	t.Poses[0].Header.FrameId.Capacity = 4
+	t.Poses[0].Header.Stamp = Time{100000,1000000}
+	t.Poses[0].Pose.Position.X = 1.0
+	t.Poses[0].Pose.Position.Y = 2.0
+	t.Poses[0].Pose.Position.Z = 3.0
+	t.Poses[1].Header.FrameId.Data = unsafe.Pointer(C.CString("map"))
+	t.Poses[1].Header.FrameId.Size = 3
+	t.Poses[1].Header.FrameId.Capacity = 4
+	t.Poses[1].Header.Stamp = Time{100000,1000000}
+	t.Poses[1].Pose.Position.X = 1.0
+	t.Poses[1].Pose.Position.Y = 2.0
+    t.Poses[1].Pose.Position.Z = 3.0
+    return t
+}
+
+

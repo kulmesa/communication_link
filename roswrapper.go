@@ -69,7 +69,7 @@ static inline void* init_ros_node(void* ctx, char* name, char* namespace){
 	return (void*)node_ptr; 
 }
 
-static inline void* init_publisher(void* ctx, void* node, char* topic, char* msgtype, void* ts){
+static inline void* init_publisher(void* ctx, void* node, char* topic, void* ts){
 	printf("init publisher begin\n"); 
 	publisher_t* pub =malloc(sizeof(publisher_t));
 	rcl_ret_t ret;
@@ -80,36 +80,41 @@ static inline void* init_publisher(void* ctx, void* node, char* topic, char* msg
 	pub->pub_ptr = malloc(sizeof(rcl_publisher_t));
   	*pub->pub_ptr = rcl_get_zero_initialized_publisher();
   	pub->pub_options = rcl_publisher_get_default_options();
-//   	const rosidl_message_type_support_t * ts = ROSIDL_GET_MSG_TYPE_SUPPORT(nav_msgs, msg, Path);
-//   	const rosidl_message_type_support_t * ts = ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, String);
-//	ret = rcl_publisher_init(pub->pub_ptr, node_ptr,  ts, topic, &pub->pub_options);
 	ret = rcl_publisher_init(pub->pub_ptr, node_ptr,  (const rosidl_message_type_support_t*)ts, topic, &pub->pub_options);
 	printf("init publisher after rcl_publisher_init\n"); 
   	return (void*)pub;
 }
 
 //static inline void do_publish_c(void* publisher, char* data){
-static inline void do_publish_c(void* publisher, void* data, int size){
+static inline void do_publish_c(void* publisher,char* msgtype, void* data){
 	rcl_publisher_t* pub = (rcl_publisher_t*)publisher;
+	rcl_ret_t ret = RCL_RET_ERROR;
+	printf("Messagetype: %s\n", msgtype);
+	if (strncmp(msgtype, "nav_msgs/msg/Path", strlen(msgtype))==0 ){
+		printf("Publish nav message\n");
+		nav_msgs__msg__Path pub_msg;
+		pub_msg.header.frame_id.data = malloc(2);
+		pub_msg.header.frame_id.data = "1";
+		pub_msg.header.frame_id.size = 1;
+		pub_msg.header.frame_id.capacity = 2;
+		pub_msg.poses.data = data;
+		pub_msg.poses.capacity = 1;
+		pub_msg.poses.size = 1;
+		ret = rcl_publish(pub, &pub_msg,NULL);
+//		free(pub_msg.header.frame_id.data);
+	}
+	else if (strncmp(msgtype, "nav_msgs/msg/Path", strlen(msgtype))==0){
+		
+	}
 //	std_msgs__msg__String pub_msg;
 //	std_msgs__msg__String__init(&pub_msg);
-	nav_msgs__msg__Path pub_msg;
 //	nav_msgs__msg__Path__init(&pub_msg);
 //	pub_msg.poses.data = malloc(size*2);
-	pub_msg.header.frame_id.data = malloc(2);
-	pub_msg.header.frame_id.data = "1";
-	pub_msg.header.frame_id.size = 1;
-	pub_msg.header.frame_id.capacity = 2;
 	
 //	strcpy(pub_msg.data.data,data);
 
 //	memcpy(&pub_msg.poses.data[0],data,size);
-	pub_msg.poses.data = data;
-	pub_msg.poses.capacity = 1;
-	pub_msg.poses.size = 1;
-	rcl_ret_t ret = rcl_publish(pub, &pub_msg,NULL);
 //	rcl_ret_t ret = rcl_publish(pub, &data,NULL);
-	printf("After publish\n");
 	if (ret != RCL_RET_OK)
 	{
 		printf("Failed to publish: %d\n", ret);
@@ -156,7 +161,6 @@ static inline void* init_subscriber(void* ctx, void* node, char* topic, char* ms
 
 static inline void* take_msg(void* sub, void* ser_msg, void* ts, int typesize,char* name, int index)
 {
-//	printf("take message called %d\n", typesize);
 	rcl_subscription_t* s = (rcl_subscription_t*)sub;
 	rcl_serialized_message_t* msg = (rcl_serialized_message_t*)ser_msg;
 	rcl_ret_t ret = rcl_take_serialized_message(s, msg, NULL, NULL);
@@ -177,8 +181,9 @@ var wg sync.WaitGroup
 var	ctx_ptr C.rcl_context_t_ptr;
 var	node_ptr C.rcl_node_t_ptr;
 
-type TypeSupport interface{
+type Type interface{
 	TypeSupport() unsafe.Pointer
+	GetData() unsafe.Pointer
 }
 
 func InitRosNode(namespace string){
@@ -207,82 +212,21 @@ type rclc_pub_ptrs_t struct{
 type Publisher struct{
 	rcl_ptrs *rclc_pub_ptrs_t
 	msgtypestr string
-	chanType reflect.Type
-	chanValue reflect.Value
 	publisher_ptr unsafe.Pointer
 }
 
-func InitPublisher(topic string, msgtype string, typesupport TypeSupport) *Publisher{
-	fmt.Println("init publisher:" + topic)
+func InitPublisher(topic string, msgtype string, typeinterface Type) *Publisher{
+	fmt.Println("init publisher:" + topic + " msgtype:" + msgtype )
 	pub := new(Publisher)
-	pub.rcl_ptrs = (*rclc_pub_ptrs_t)(C.init_publisher(unsafe.Pointer(ctx_ptr),unsafe.Pointer(node_ptr), C.CString(topic), C.CString(msgtype), typesupport.TypeSupport()))
+	pub.msgtypestr = msgtype
+	pub.rcl_ptrs = (*rclc_pub_ptrs_t)(C.init_publisher(unsafe.Pointer(ctx_ptr),unsafe.Pointer(node_ptr), C.CString(topic), typeinterface.TypeSupport()))
 	return pub
 }
 
-func (p Publisher) DoPublish(data string){
-	fmt.Println("do publish:" , data)
-
-	// path = Path()
-	// path.header.stamp = rclpy.clock.Clock().now().to_msg()
-	// path.header.frame_id = "map"
-
-	// if no:
-	// 	print ("Publish single wp")
-	// 	# publish 1 wp
-	// 	pose = PoseStamped()
-	// 	pose.header.stamp = path.header.stamp # add time offset
-	// 	pose.header.frame_id = "map"
-	// 	point = Point()
-	// 	point.x = self.wp[no][0]
-	// 	point.y = self.wp[no][1]
-	// 	point.z = self.wp[no][2]
-	// 	pose.pose.position = point
-
-	// 	pose.pose.orientation.x,pose.pose.orientation.y,pose.pose.orientation.z,pose.pose.orientation.w = euler_to_quaternion(0,0,self.wp[no][3])
-	// 	path.poses.append(pose)
-
-	// 	#print('Publishing: "%s"' % path.poses)
-	// 	self.publisher.publish(path)
-
-//	path := new (types.Path)
-//	path.Hdr.FrameId = "TEST"
-//	wp := types.PoseStamped{}
-//	wp.Header.FrameId = "map"
-//	path.Poses = append(path.Poses,wp)
-
-/*	path.Poses[0].Header.FrameId = ""
-	path.Poses[0].Header.Stamp = types.Time{100000,1000000}
-	path.Poses[0].Pose.Position.X = 1.0
-	path.Poses[0].Pose.Position.Y = 2.0
-	path.Poses[0].Pose.Position.Z = 3.0
-*/
-	//poses := [1]types.PoseStamped{}
-
-	poses := make([]types.PoseStamped,2)
-	
-	poses[0].Header.FrameId.Data = unsafe.Pointer(C.CString("map"))
-	poses[0].Header.FrameId.Size = 3
-	poses[0].Header.FrameId.Capacity = 4
-	poses[0].Header.Stamp = types.Time{100000,1000000}
-	poses[0].Pose.Position.X = 1.0
-	poses[0].Pose.Position.Y = 2.0
-	poses[0].Pose.Position.Z = 3.0
-	poses[1].Header.FrameId.Data = unsafe.Pointer(C.CString("map"))
-	poses[1].Header.FrameId.Size = 3
-	poses[1].Header.FrameId.Capacity = 4
-	poses[1].Header.Stamp = types.Time{100000,1000000}
-	poses[1].Pose.Position.X = 1.0
-	poses[1].Pose.Position.Y = 2.0
-	poses[1].Pose.Position.Z = 3.0
-	fmt.Println("sizeof poses: " , unsafe.Sizeof(poses[0]))
-/*	fmt.Println("sizeof frameid: " , unsafe.Sizeof(poses[0].Header.FrameId))
-	fmt.Println("sizeof frameid.size: " , unsafe.Sizeof(poses[0].Header.FrameId.Size))
-	fmt.Println("sizeof frameid.cap: " , unsafe.Sizeof(poses[0].Header.FrameId.Capacity))
-	fmt.Println("sizeof &frameid.data: " , unsafe.Sizeof(&poses[0].Header.FrameId.Data))
-	fmt.Println("sizeof frameid.data: " , unsafe.Sizeof(poses[0].Header.FrameId.Data))
-*/
-//	C.do_publish_c(unsafe.Pointer(p.rcl_ptrs.publisher_ptr),C.CString(data))
-	C.do_publish_c(unsafe.Pointer(p.rcl_ptrs.publisher_ptr),unsafe.Pointer(&(poses[0])), C.int(unsafe.Sizeof(poses[0])))
+func (p Publisher) DoPublish(data Type){
+	t := data.GetData()
+	C.do_publish_c(unsafe.Pointer(p.rcl_ptrs.publisher_ptr),C.CString(p.msgtypestr),t)
+//	C.do_publish_c(unsafe.Pointer(p.rcl_ptrs.publisher_ptr),unsafe.Pointer(&(t.Poses[0])), C.int(unsafe.Sizeof(t.Poses[0])))
 }
 
 func (p Publisher) Finish(){

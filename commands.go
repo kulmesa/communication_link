@@ -31,22 +31,22 @@ func handleControlCommand(command string, pub *Publisher) {
 	switch cmd.Command {
 	case "takeoff":
 		log.Printf("Publishing 'takeoff' to /mavlinkcmd")
-		pub.DoPublish("takeoff")
+		pub.DoPublish(types.GenerateString("takeoff"))
 	case "land":
 		log.Printf("Publishing 'land' to /mavlinkcmd")
-		pub.DoPublish("land")
+		pub.DoPublish(types.GenerateString("land"))
 	case "start_mission":
 		log.Printf("Publishing 'start_mission' to /mavlinkcmd")
-		pub.DoPublish("start_mission")
+		pub.DoPublish(types.GenerateString("start_mission"))
 	case "pause_mission":
 		log.Printf("Publishing 'pause_mission' to /mavlinkcmd")
-		pub.DoPublish("pause_mission")
+		pub.DoPublish(types.GenerateString("pause_mission"))
 	case "resume_mission":
 		log.Printf("Publishing 'resume_mission' to /mavlinkcmd")
-		pub.DoPublish("resume_mission")
+		pub.DoPublish(types.GenerateString("resume_mission"))
 	case "return_home":
 		log.Printf("Publishing 'return_home' to /mavlinkcmd")
-		pub.DoPublish("return_home")
+		pub.DoPublish(types.GenerateString("return_home"))
 	//case "plan":
 	//	log.Printf("Publishing 'plan' to /mavlinkcmd")
 	//	msg.SetText("plan")
@@ -72,7 +72,7 @@ func handleMissionCommand(command string, pub *Publisher) {
 	case "new_mission":
 		log.Printf("Publishing mission to where ever")
 //		mission := new (types.PoseStamped)
-		pub.DoPublish("mission")
+		pub.DoPublish(types.GeneratePath())
 	default:
 		log.Printf("Unknown command: %v", command)
 	}
@@ -85,10 +85,6 @@ func handleControlCommands(ctx context.Context, wg *sync.WaitGroup, commands <-c
 	wg.Add(1)
 	defer wg.Done()
 	pub := InitPublisher("mavlinkcmd","std_msgs/msg/String",(*types.String)(nil))
-	for i:=0 ; i<5; i++ {
-		time.Sleep(time.Second)
-		pub.DoPublish("mission")
-	}
 	for {
 		select {
 		case <-ctx.Done():
@@ -105,6 +101,10 @@ func handleMissionCommands(ctx context.Context, wg *sync.WaitGroup, commands <-c
 	wg.Add(1)
 	defer wg.Done()
 	pub := InitPublisher("whereever","nav_msgs/msg/Path", (*types.Path)(nil))
+	for i:=0 ; i<5; i++ {
+		time.Sleep(time.Second)
+		pub.DoPublish(types.GeneratePath())
+	}
 	for {
 		select {
 		case <-ctx.Done():
