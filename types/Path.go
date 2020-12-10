@@ -25,6 +25,11 @@ func (t* Path) GetData() unsafe.Pointer{
     return unsafe.Pointer(&(t.Poses[0]))
 }
 
+func (t* Path) Finish() {
+	C.free(unsafe.Pointer(t.Poses[0].Header.FrameId.Data))
+	C.free(unsafe.Pointer(t.Poses[1].Header.FrameId.Data))
+}
+
 func GeneratePath() *Path{
     t := new(Path)
 	t.Poses = make([]PoseStamped,2)
@@ -45,5 +50,4 @@ func GeneratePath() *Path{
     t.Poses[1].Pose.Position.Z = 3.0
     return t
 }
-
 

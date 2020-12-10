@@ -31,6 +31,10 @@ func (t* String) GetData() unsafe.Pointer{
     return unsafe.Pointer(t)
 }
 
+func (t* String) Finish() {
+//    C.free(unsafe.Pointer(t.Data))
+}
+
 func GenerateString(data string) *String{
     t := new(String)
     t.Data = C.CString(data)

@@ -101,7 +101,9 @@ static inline void do_publish_c(void* publisher,char* msgtype, void* data){
 		pub_msg.poses.size = 1;
 		ret = rcl_publish(pub, &pub_msg,NULL);
 //		nav_msgs__msg__Path__fini(&pub_msg);
+//		printf("before free\n");
 //		free(pub_msg.header.frame_id.data);
+//		printf("after free\n");
 	}
 	else if (strncmp(msgtype, "std_msgs/msg/String", strlen(msgtype))==0){
 		std_msgs__msg__String pub_msg;
@@ -180,6 +182,7 @@ var	node_ptr C.rcl_node_t_ptr;
 type Type interface{
 	TypeSupport() unsafe.Pointer
 	GetData() unsafe.Pointer
+	Finish()
 }
 
 func InitRosNode(namespace string){
@@ -187,7 +190,11 @@ func InitRosNode(namespace string){
 	ns := strings.ReplaceAll(namespace,"/","")
 	ns = strings.ReplaceAll(ns,"-","")
 	ctx_ptr = C.rcl_context_t_ptr(C.init_ros_ctx());
-	node_ptr = C.rcl_node_t_ptr(C.init_ros_node(unsafe.Pointer(ctx_ptr), C.CString("communication_link_pub"),C.CString(ns)))
+	node_name_c := C.CString("communication_link")
+	ns_c := C.CString(ns)
+	node_ptr = C.rcl_node_t_ptr(C.init_ros_node(unsafe.Pointer(ctx_ptr),node_name_c ,ns_c))
+	C.free(unsafe.Pointer(ns_c))
+	C.free(unsafe.Pointer(node_name_c))
 }
 
 func ShutdownRosNode(){
@@ -215,14 +222,19 @@ func InitPublisher(topic string, msgtype string, typeinterface Type) *Publisher{
 	fmt.Println("init publisher:" + topic + " msgtype:" + msgtype )
 	pub := new(Publisher)
 	pub.msgtypestr = msgtype
+	topic_c := C.CString(topic)
 	pub.rcl_ptrs = (*rclc_pub_ptrs_t)(C.init_publisher(unsafe.Pointer(ctx_ptr),unsafe.Pointer(node_ptr), C.CString(topic), typeinterface.TypeSupport()))
+	C.free(unsafe.Pointer(topic_c))
 	return pub
 }
 
 func (p Publisher) DoPublish(data Type){
 	t := data.GetData()
-	C.do_publish_c(unsafe.Pointer(p.rcl_ptrs.publisher_ptr),C.CString(p.msgtypestr),t)
+	msgtype_c := C.CString(p.msgtypestr)
+	C.do_publish_c(unsafe.Pointer(p.rcl_ptrs.publisher_ptr),msgtype_c,t)
 //	C.do_publish_c(unsafe.Pointer(p.rcl_ptrs.publisher_ptr),unsafe.Pointer(&(t.Poses[0])), C.int(unsafe.Sizeof(t.Poses[0])))
+	C.free(unsafe.Pointer(msgtype_c))
+	data.Finish()
 }
 
 func (p Publisher) Finish(){
@@ -267,15 +279,18 @@ func InitSubscriber(messages interface{},topic string, msgtype string) *Subscrib
 	method := msg.MethodByName("TypeSupport")
 	result := method.Call(nil)	
 
+	topic_c := C.CString(s.topic)
+	msgtype_c := C.CString(s.msgtypestr)
 	s.rcl_ptrs = (*rclc_sub_ptrs_t)(C.init_subscriber(
 		unsafe.Pointer(ctx_ptr),
 		unsafe.Pointer(node_ptr),
-		C.CString(s.topic),
-		C.CString(s.msgtypestr),
+		topic_c,
+		msgtype_c,
 		unsafe.Pointer(result[0].Pointer()),
 		))
+	C.free(unsafe.Pointer(topic_c))
+	C.free(unsafe.Pointer(msgtype_c))
 	return s
-
 }
 
 func (s Subscriber)DoSubscribe(/*messages interface{},topic string, msgtype string*/){
@@ -285,15 +300,17 @@ func (s Subscriber)DoSubscribe(/*messages interface{},topic string, msgtype stri
 	method := msg.MethodByName("TypeSupport")
 	result := method.Call(nil)	
 
+	name_c := C.CString(s.name)
 	for{
 		C.take_msg(unsafe.Pointer(s.rcl_ptrs.subscription_ptr),
 			unsafe.Pointer(s.rcl_ptrs.ser_msg_ptr),
 			unsafe.Pointer(result[0].Pointer()),
 			C.int(msgType.Size()),
-			C.CString(s.name),
+			name_c,
 			C.int(s.index) )
 		time.Sleep(100*time.Millisecond)
 	}
+	C.free(unsafe.Pointer(name_c))
 }
 
 func (s Subscriber) Finish(){
