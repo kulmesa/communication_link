@@ -20,6 +20,7 @@ import (
 #include "rcl/node.h"
 #include "std_msgs/msg/string.h"
 #include "nav_msgs/msg/path.h"
+#include "rosidl_runtime_c/string.h"
 
 extern void GoCallback();
 static inline void Callback(int size, void* data, void* name, int index){
@@ -79,8 +80,19 @@ static inline void* init_publisher(void* ctx, void* node, char* topic, void* ts)
 	rcl_publisher_options_t publisher_options;
 	pub->pub_ptr = malloc(sizeof(rcl_publisher_t));
   	*pub->pub_ptr = rcl_get_zero_initialized_publisher();
-  	pub->pub_options = rcl_publisher_get_default_options();
-	ret = rcl_publisher_init(pub->pub_ptr, node_ptr,  (const rosidl_message_type_support_t*)ts, topic, &pub->pub_options);
+	pub->pub_options = rcl_publisher_get_default_options();
+	if(ts==NULL)
+	{
+		printf("init publisher ts ==NULL\n");
+
+		const rosidl_message_type_support_t * ts_ = ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, String);
+		ret = rcl_publisher_init(pub->pub_ptr, node_ptr,  ts_, topic, &pub->pub_options);
+	}
+	else
+	{
+		printf("init publisher ts defined\n");
+		ret = rcl_publisher_init(pub->pub_ptr, node_ptr,  (const rosidl_message_type_support_t*)ts, topic, &pub->pub_options);
+	}
 	printf("init publisher after rcl_publisher_init\n"); 
   	return (void*)pub;
 }
@@ -103,18 +115,26 @@ static inline void do_publish_c(void* publisher,char* msgtype, void* data){
 		ret = rcl_publish(pub, &pub_msg,NULL);
 //		free(pub_msg.header.frame_id.data);
 	}
-	else if (strncmp(msgtype, "nav_msgs/msg/Path", strlen(msgtype))==0){
-		
+	else if (strncmp(msgtype, "std_msgs/msg/String", strlen(msgtype))==0){
+		printf("Publish str message\n");
+		std_msgs__msg__String pub_msg;
+		std_msgs__msg__String__init(&pub_msg);
+		rosidl_runtime_c__String* t = (rosidl_runtime_c__String*)data;
+		printf("Publish str message2\n");
+		printf("str size:%ld capacity:%ld\n", t->size, t->capacity);
+		printf("strlen(t->data):%ld \n", strlen(t->data));
+//		pub_msg.data.data = malloc(t->capacity+1);
+		pub_msg.data.data = malloc(strlen(t->data)+1);
+		strcpy(pub_msg.data.data,t->data);
+		pub_msg.data.capacity = t->capacity;
+		pub_msg.data.size = t->size;
+		printf("Publish str message 3\n");
+		printf("str1 :%s \n", pub_msg.data.data);
+		printf("str2 :%s \n", t->data);
+		ret = rcl_publish(pub, &pub_msg,NULL);
+		printf("After publish str message\n");
+//		std_msgs__msg__String__fini(&pub_msg);
 	}
-//	std_msgs__msg__String pub_msg;
-//	std_msgs__msg__String__init(&pub_msg);
-//	nav_msgs__msg__Path__init(&pub_msg);
-//	pub_msg.poses.data = malloc(size*2);
-	
-//	strcpy(pub_msg.data.data,data);
-
-//	memcpy(&pub_msg.poses.data[0],data,size);
-//	rcl_ret_t ret = rcl_publish(pub, &data,NULL);
 	if (ret != RCL_RET_OK)
 	{
 		printf("Failed to publish: %d\n", ret);
@@ -225,6 +245,9 @@ func InitPublisher(topic string, msgtype string, typeinterface Type) *Publisher{
 
 func (p Publisher) DoPublish(data Type){
 	t := data.GetData()
+	d := (*types.String)(t)
+	fmt.Println("DoPublish size,capacity:" , d.Size , d.Capacity )
+
 	C.do_publish_c(unsafe.Pointer(p.rcl_ptrs.publisher_ptr),C.CString(p.msgtypestr),t)
 //	C.do_publish_c(unsafe.Pointer(p.rcl_ptrs.publisher_ptr),unsafe.Pointer(&(t.Poses[0])), C.int(unsafe.Sizeof(t.Poses[0])))
 }

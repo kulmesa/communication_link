@@ -85,6 +85,11 @@ func handleControlCommands(ctx context.Context, wg *sync.WaitGroup, commands <-c
 	wg.Add(1)
 	defer wg.Done()
 	pub := InitPublisher("mavlinkcmd","std_msgs/msg/String",(*types.String)(nil))
+	for i:=0 ; i<5; i++ {
+		time.Sleep(time.Second)
+		pub.DoPublish(types.GenerateString("testing"))
+	}
+
 	for {
 		select {
 		case <-ctx.Done():

@@ -23,21 +23,20 @@ func (t* Path) TypeSupport() unsafe.Pointer{
 
 func (t* Path) GetData() unsafe.Pointer{
     return unsafe.Pointer(&(t.Poses[0]))
-//    return t
 }
 
 func GeneratePath() *Path{
     t := new(Path)
 	t.Poses = make([]PoseStamped,2)
 	
-	t.Poses[0].Header.FrameId.Data = unsafe.Pointer(C.CString("map"))
+	t.Poses[0].Header.FrameId.Data = C.CString("map")
 	t.Poses[0].Header.FrameId.Size = 3
 	t.Poses[0].Header.FrameId.Capacity = 4
 	t.Poses[0].Header.Stamp = Time{100000,1000000}
 	t.Poses[0].Pose.Position.X = 1.0
 	t.Poses[0].Pose.Position.Y = 2.0
 	t.Poses[0].Pose.Position.Z = 3.0
-	t.Poses[1].Header.FrameId.Data = unsafe.Pointer(C.CString("map"))
+	t.Poses[1].Header.FrameId.Data = C.CString("map")
 	t.Poses[1].Header.FrameId.Size = 3
 	t.Poses[1].Header.FrameId.Capacity = 4
 	t.Poses[1].Header.Stamp = Time{100000,1000000}
