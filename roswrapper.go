@@ -111,7 +111,7 @@ typedef struct Subscriber_C {
 
 static inline void* init_subscriber(void* ctx, void* node, char* topic, char* msgtype,void* ts)
 {
-	subscriber_t* sub = malloc(sizeof(rcl_subscription_t));
+	subscriber_t* sub = malloc(sizeof(subscriber_t));
 	rcl_ret_t ret;
 	rcl_context_t_ptr ctx_ptr = (rcl_context_t_ptr)ctx;
 	rcl_node_t_ptr node_ptr = (rcl_node_t_ptr)node;	
