@@ -38,6 +38,7 @@ func sendGPSLocation(mqttClient mqtt.Client, coordinates Coordinates) {
 	b, _ := json.Marshal(t)
 	mqttClient.Publish(topic, qos, retain, string(b))
 }
+//px4_msgs/msg/SensorCombined
 
 func handleGPSMessages(ctx context.Context, mqttClient mqtt.Client) {
 	messages := make (chan types.VehicleGlobalPosition)
@@ -59,10 +60,34 @@ func handleGPSMessages(ctx context.Context, mqttClient mqtt.Client) {
 	}
 }
 
+func handleSensorMessages(ctx context.Context, mqttClient mqtt.Client) {
+	messages := make (chan types.SensorCombined)
+	log.Printf("Creating subscriber for %s", "SensorCombined")
+	sub := InitSubscriber(messages, "SensorCombined_PubSubTopic","px4_msgs/msg/SensorCombined")
+	go sub.DoSubscribe()
+	go func (){
+		for m:=range messages{
+			log.Printf("Timestamp: %v,  GyroRads:%v %v",m.Timestamp, m.GyroRad[0], m.GyroRad[1])
+		}
+	}()
+	for {
+		select {
+		case <-ctx.Done():
+			sub.Finish()
+			return
+		}
+	}
+}
+
+
 func startTelemetry(ctx context.Context, wg *sync.WaitGroup, mqttClient mqtt.Client) {
-	wg.Add(1)
+	wg.Add(2)
 	go func() {
 		defer wg.Done()
 		handleGPSMessages(ctx, mqttClient)
+	}()
+	go func() {
+		defer wg.Done()
+		handleSensorMessages(ctx, mqttClient)
 	}()
 }

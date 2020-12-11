@@ -32,7 +32,7 @@ func (t* String) GetData() unsafe.Pointer{
 }
 
 func (t* String) Finish() {
-//    C.free(unsafe.Pointer(t.Data))
+    //C.free(unsafe.Pointer(t.Data))
 }
 
 func GenerateString(data string) *String{
