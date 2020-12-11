@@ -38,7 +38,6 @@ func sendGPSLocation(mqttClient mqtt.Client, coordinates Coordinates) {
 	b, _ := json.Marshal(t)
 	mqttClient.Publish(topic, qos, retain, string(b))
 }
-//px4_msgs/msg/SensorCombined
 
 func handleGPSMessages(ctx context.Context, mqttClient mqtt.Client) {
 	messages := make (chan types.VehicleGlobalPosition)
@@ -67,7 +66,9 @@ func handleSensorMessages(ctx context.Context, mqttClient mqtt.Client) {
 	go sub.DoSubscribe()
 	go func (){
 		for m:=range messages{
-			log.Printf("Timestamp: %v,  GyroRads:%v %v",m.Timestamp, m.GyroRad[0], m.GyroRad[1])
+			b, _ := json.Marshal(m)
+			log.Printf(string(b))
+//			log.Printf("Timestamp: %v,  GyroRads:%v %v",m.Timestamp, m.GyroRad[0], m.GyroRad[1])
 		}
 	}()
 	for {
