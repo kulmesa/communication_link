@@ -29,6 +29,11 @@ type ROSCoordinates struct {
 	Lon float64 `json:"lon"`
 }
 
+type SensorData struct {
+	SensorCombined types.SensorCombined
+	DeviceId    string
+}
+
 func sendGPSLocation(mqttClient mqtt.Client, coordinates Coordinates) {
 	topic := fmt.Sprintf("/devices/%s/%s", *DeviceID, "events")
 	t := Telemetry{
@@ -38,6 +43,19 @@ func sendGPSLocation(mqttClient mqtt.Client, coordinates Coordinates) {
 	b, _ := json.Marshal(t)
 	mqttClient.Publish(topic, qos, retain, string(b))
 }
+
+
+func sendSensorData(mqttClient mqtt.Client, data types.SensorCombined) {
+	topic := fmt.Sprintf("/devices/%s/%s", *DeviceID, "events/sensordata")
+	t := SensorData{
+		SensorCombined: data,
+		DeviceId:    *DeviceID,
+	}
+	b, _ := json.Marshal(t)
+	log.Printf(string(b))
+	mqttClient.Publish(topic, qos, retain, string(b))
+}
+
 
 func handleGPSMessages(ctx context.Context, mqttClient mqtt.Client) {
 	messages := make (chan types.VehicleGlobalPosition)
@@ -66,8 +84,7 @@ func handleSensorMessages(ctx context.Context, mqttClient mqtt.Client) {
 	go sub.DoSubscribe()
 	go func (){
 		for m:=range messages{
-			b, _ := json.Marshal(m)
-			log.Printf(string(b))
+			sendSensorData(mqttClient,m)
 //			log.Printf("Timestamp: %v,  GyroRads:%v %v",m.Timestamp, m.GyroRad[0], m.GyroRad[1])
 		}
 	}()
