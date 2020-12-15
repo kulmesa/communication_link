@@ -22,9 +22,9 @@ import (
 #include "nav_msgs/msg/path.h"
 #include "rosidl_runtime_c/string.h"
 
-extern void GoCallback();
+extern void goCallback();
 static inline void Callback(int size, void* data, void* name, int index){
-	GoCallback(size, data, name, index);
+	goCallback(size, data, name, index);
 }
 typedef rcl_context_t* rcl_context_t_ptr;
 typedef rcl_node_t* rcl_node_t_ptr;
@@ -180,159 +180,159 @@ import "C"
 //var global_messages chan <- types.VehicleGlobalPosition
 //var global_str_messages chan <- string
 var wg sync.WaitGroup
-var	ctx_ptr C.rcl_context_t_ptr;
-var	node_ptr C.rcl_node_t_ptr;
+var	ctxPtr C.rcl_context_t_ptr;
+var	nodePtr C.rcl_node_t_ptr;
 
-type Type interface{
+type msgType interface{
 	TypeSupport() unsafe.Pointer
 	GetData() unsafe.Pointer
 	Finish()
 }
 
-func InitRosNode(namespace string){
+func initRosNode(namespace string){
 	fmt.Println("init ros")
 	ns := strings.ReplaceAll(namespace,"/","")
 	ns = strings.ReplaceAll(ns,"-","")
-	ctx_ptr = C.rcl_context_t_ptr(C.init_ros_ctx());
-	node_name_c := C.CString("communication_link")
-	ns_c := C.CString(ns)
-	node_ptr = C.rcl_node_t_ptr(C.init_ros_node(unsafe.Pointer(ctx_ptr),node_name_c ,ns_c))
-	C.free(unsafe.Pointer(ns_c))
-	C.free(unsafe.Pointer(node_name_c))
+	ctxPtr = C.rcl_context_t_ptr(C.init_ros_ctx());
+	nodeNameC := C.CString("communication_link")
+	nsc := C.CString(ns)
+	nodePtr = C.rcl_node_t_ptr(C.init_ros_node(unsafe.Pointer(ctxPtr),nodeNameC ,nsc))
+	C.free(unsafe.Pointer(nsc))
+	C.free(unsafe.Pointer(nodeNameC))
 }
 
-func ShutdownRosNode(){
+func shutdownRosNode(){
 	fmt.Println("shutdown ros")
-	C.rcl_node_fini(node_ptr)
-	C.free(unsafe.Pointer(node_ptr))
-	C.rcl_shutdown(ctx_ptr)
-	C.rcl_context_fini(ctx_ptr)
-	C.free(unsafe.Pointer(ctx_ptr))
+	C.rcl_node_fini(nodePtr)
+	C.free(unsafe.Pointer(nodePtr))
+	C.rcl_shutdown(ctxPtr)
+	C.rcl_context_fini(ctxPtr)
+	C.free(unsafe.Pointer(ctxPtr))
 }
 
 /////// Publisher ///////
-type rclc_pub_ptrs_t struct{
-	publisher_options C.rcl_publisher_options_t
-	publisher_ptr C.rcl_publisher_t_ptr
+type rclcPubPtrs struct{
+	publisherOptions C.rcl_publisher_options_t
+	publisherPtr C.rcl_publisher_t_ptr
 }
 
-type Publisher struct{
-	rcl_ptrs *rclc_pub_ptrs_t
+type publisher struct{
+	rclPtrs *rclcPubPtrs
 	msgtypestr string
-	publisher_ptr unsafe.Pointer
+	publisherPtr unsafe.Pointer
 }
 
-func InitPublisher(topic string, msgtype string, typeinterface Type) *Publisher{
+func initPublisher(topic string, msgtype string, typeinterface msgType) *publisher{
 	fmt.Println("init publisher:" + topic + " msgtype:" + msgtype )
-	pub := new(Publisher)
+	pub := new(publisher)
 	pub.msgtypestr = msgtype
-	topic_c := C.CString(topic)
-	pub.rcl_ptrs = (*rclc_pub_ptrs_t)(C.init_publisher(unsafe.Pointer(ctx_ptr),unsafe.Pointer(node_ptr), C.CString(topic), typeinterface.TypeSupport()))
-	C.free(unsafe.Pointer(topic_c))
+	topicC := C.CString(topic)
+	pub.rclPtrs = (*rclcPubPtrs)(C.init_publisher(unsafe.Pointer(ctxPtr),unsafe.Pointer(nodePtr), C.CString(topic), typeinterface.TypeSupport()))
+	C.free(unsafe.Pointer(topicC))
 	fmt.Println("init publisher END : " + topic + " msgtype:" + msgtype )
 	return pub
 }
 
-func (p Publisher) DoPublish(data Type){
+func (p publisher) doPublish(data msgType){
 	t := data.GetData()
-	msgtype_c := C.CString(p.msgtypestr)
-	C.do_publish_c(unsafe.Pointer(p.rcl_ptrs.publisher_ptr),msgtype_c,t)
+	msgtypeC := C.CString(p.msgtypestr)
+	C.do_publish_c(unsafe.Pointer(p.rclPtrs.publisherPtr),msgtypeC,t)
 //	C.do_publish_c(unsafe.Pointer(p.rcl_ptrs.publisher_ptr),unsafe.Pointer(&(t.Poses[0])), C.int(unsafe.Sizeof(t.Poses[0])))
-	C.free(unsafe.Pointer(msgtype_c))
+	C.free(unsafe.Pointer(msgtypeC))
 	data.Finish()
 }
 
-func (p Publisher) Finish(){
+func (p publisher) finish(){
 	//finish and clean rclc here
-	C.rcl_publisher_fini(p.rcl_ptrs.publisher_ptr,node_ptr)
-	C.free(unsafe.Pointer(p.rcl_ptrs.publisher_ptr))
+	C.rcl_publisher_fini(p.rclPtrs.publisherPtr,nodePtr)
+	C.free(unsafe.Pointer(p.rclPtrs.publisherPtr))
 }
 
 /////// Subscriber ///////
-type rclc_sub_ptrs_t struct{
-	subscription_ptr C.rcl_subscription_t_ptr
-	sub_options C.rcl_subscription_options_t
+type rclcSubPtrs struct{
+	subscriptionPtr C.rcl_subscription_t_ptr
+	subOptions C.rcl_subscription_options_t
 	allocator C.rcutils_allocator_t
-	ser_msg_ptr C.rcl_serialized_message_t_ptr
+	serMsgPtr C.rcl_serialized_message_t_ptr
 }
 
-type Subscriber struct{
+type subscriber struct{
 	name string
 	topic string
 	msgtypestr string
 	chanType reflect.Type
 	chanValue reflect.Value
 	index int
-	rcl_ptrs *rclc_sub_ptrs_t
+	rclPtrs *rclcSubPtrs
 }
-var SubscriberArr []Subscriber
+var subscriberArr []subscriber
 
-func InitSubscriber(messages interface{},topic string, msgtype string) *Subscriber{
+func initSubscriber(messages interface{},topic string, msgtype string) *subscriber{
 	fmt.Println("init subscriber")
-	s := new(Subscriber)
+	s := new(subscriber)
 	s.chanType = reflect.TypeOf(messages)
 	s.chanValue = reflect.ValueOf(messages)
 	msgType := s.chanType.Elem()
 	fmt.Printf("%+v (%+v)\n", s.chanType, reflect.PtrTo(msgType))
-	sub_name := "sub_" + strings.ReplaceAll(topic,"/","")
-	s.name = sub_name
+	subName := "sub_" + strings.ReplaceAll(topic,"/","")
+	s.name = subName
 	s.topic = topic
 	s.msgtypestr = msgtype
-	SubscriberArr = append(SubscriberArr,*s)
-	s.index = len(SubscriberArr)-1
+	subscriberArr = append(subscriberArr,*s)
+	s.index = len(subscriberArr)-1
 
 	msg := reflect.New(msgType)
 	method := msg.MethodByName("TypeSupport")
 	result := method.Call(nil)	
 
-	topic_c := C.CString(s.topic)
-	msgtype_c := C.CString(s.msgtypestr)
-	s.rcl_ptrs = (*rclc_sub_ptrs_t)(C.init_subscriber(
-		unsafe.Pointer(ctx_ptr),
-		unsafe.Pointer(node_ptr),
-		topic_c,
-		msgtype_c,
+	topicC := C.CString(s.topic)
+	msgtypeC := C.CString(s.msgtypestr)
+	s.rclPtrs = (*rclcSubPtrs)(C.init_subscriber(
+		unsafe.Pointer(ctxPtr),
+		unsafe.Pointer(nodePtr),
+		topicC,
+		msgtypeC,
 		unsafe.Pointer(result[0].Pointer()),
 		))
-	C.free(unsafe.Pointer(topic_c))
-	C.free(unsafe.Pointer(msgtype_c))
+	C.free(unsafe.Pointer(topicC))
+	C.free(unsafe.Pointer(msgtypeC))
 	fmt.Println("init subscriber END")
 	return s
 }
 
-func (s Subscriber)DoSubscribe(/*messages interface{},topic string, msgtype string*/){
+func (s subscriber)doSubscribe(/*messages interface{},topic string, msgtype string*/){
 	fmt.Println("subscribing")
 	msgType := s.chanType.Elem()
 	msg := reflect.New(msgType)
 	method := msg.MethodByName("TypeSupport")
 	result := method.Call(nil)	
 
-	name_c := C.CString(s.name)
+	nameC := C.CString(s.name)
 	for{
-		C.take_msg(unsafe.Pointer(s.rcl_ptrs.subscription_ptr),
-			unsafe.Pointer(s.rcl_ptrs.ser_msg_ptr),
+		C.take_msg(unsafe.Pointer(s.rclPtrs.subscriptionPtr),
+			unsafe.Pointer(s.rclPtrs.serMsgPtr),
 			unsafe.Pointer(result[0].Pointer()),
 			C.int(msgType.Size()),
-			name_c,
+			nameC,
 			C.int(s.index) )
 		time.Sleep(100*time.Millisecond)
 	}
-	C.free(unsafe.Pointer(name_c))
+	C.free(unsafe.Pointer(nameC))
 }
 
-func (s Subscriber) Finish(){
+func (s subscriber) finish(){
 	//finish and clean rclc here
 	fmt.Println("Finish subscriber")
-	C.rcutils_uint8_array_fini(s.rcl_ptrs.ser_msg_ptr);
-	C.rcl_subscription_fini(s.rcl_ptrs.subscription_ptr,node_ptr)
-	C.free(unsafe.Pointer(s.rcl_ptrs.subscription_ptr))
+	C.rcutils_uint8_array_fini(s.rclPtrs.serMsgPtr);
+	C.rcl_subscription_fini(s.rclPtrs.subscriptionPtr,nodePtr)
+	C.free(unsafe.Pointer(s.rclPtrs.subscriptionPtr))
 	fmt.Println("Finished subscriber")
 }
 
 
-//export GoCallback
-func GoCallback(size C.int, data unsafe.Pointer, name unsafe.Pointer, index C.int){
-	sub := SubscriberArr[index]
+//export goCallback
+func goCallback(size C.int, data unsafe.Pointer, name unsafe.Pointer, index C.int){
+	sub := subscriberArr[index]
 	n := C.GoString((*C.char)(name))
 	if (sub.name==n){
 		msgType := sub.chanType.Elem()
@@ -340,7 +340,7 @@ func GoCallback(size C.int, data unsafe.Pointer, name unsafe.Pointer, index C.in
 		sub.chanValue.Send(reflect.Indirect(d))
 	}else{
 		//if name does not match, search correct sub from array
-		for _,s := range SubscriberArr{
+		for _,s := range subscriberArr{
 			if s.name == n{
 				msgType := s.chanType.Elem()
 				d := reflect.NewAt(msgType, data)

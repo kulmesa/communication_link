@@ -1,5 +1,6 @@
 package types
 
+//Quaternion ROS geometry message struct
 type Quaternion struct {
     X float64
     Y float64

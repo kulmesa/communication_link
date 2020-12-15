@@ -18,16 +18,16 @@ import (
 )
 
 const (
-	RegistryID = "fleet-registry"
-	ProjectID  = "auto-fleet-mgnt"
-	Region     = "europe-west1"
-	Algorithm  = "RS256"
-	Server     = "ssl://mqtt.googleapis.com:8883"
+	registryID = "fleet-registry"
+	projectID  = "auto-fleet-mgnt"
+	region     = "europe-west1"
+	algorithm  = "RS256"
+	server     = "ssl://mqtt.googleapis.com:8883"
 )
 
 var (
-	DeviceID       = flag.String("device_id", "", "The provisioned device id")
-	PrivateKeyPath = flag.String("private_key", "/enclave/rsa_private.pem", "The private key for the MQTT authentication")
+	deviceID       = flag.String("device_id", "", "The provisioned device id")
+	privateKeyPath = flag.String("private_key", "/enclave/rsa_private.pem", "The private key for the MQTT authentication")
 )
 
 // MQTT parameters
@@ -53,8 +53,8 @@ func main() {
 	mqttClient := newMQTTClient()
 	defer mqttClient.Disconnect(1000)
 
-	InitRosNode(*DeviceID)
-	defer ShutdownRosNode()
+	initRosNode(*deviceID)
+	defer shutdownRosNode()
 	startTelemetry(ctx, &wg, mqttClient)
 	startCommandHandlers(ctx, &wg, mqttClient)
 
@@ -75,24 +75,24 @@ func newMQTTClient() mqtt.Client {
 	// generate MQTT client
 	clientID := fmt.Sprintf(
 		"projects/%s/locations/%s/registries/%s/devices/%s",
-		ProjectID, Region, RegistryID, *DeviceID)
+		projectID, region, registryID, *deviceID)
 
 	log.Println("Client ID:", clientID)
 
 	// load private key
-	keyData, err := ioutil.ReadFile(*PrivateKeyPath)
+	keyData, err := ioutil.ReadFile(*privateKeyPath)
 	if err != nil {
 		panic(err)
 	}
 
 	var key interface{}
-	switch Algorithm {
+	switch algorithm {
 	case "RS256":
 		key, err = jwt.ParseRSAPrivateKeyFromPEM(keyData)
 	case "ES256":
 		key, err = jwt.ParseECPrivateKeyFromPEM(keyData)
 	default:
-		log.Fatalf("Unknown algorithm: %s", Algorithm)
+		log.Fatalf("Unknown algorithm: %s", algorithm)
 	}
 	if err != nil {
 		panic(err)
@@ -100,10 +100,10 @@ func newMQTTClient() mqtt.Client {
 
 	// generate JWT as the MQTT password
 	t := time.Now()
-	token := jwt.NewWithClaims(jwt.GetSigningMethod(Algorithm), &jwt.StandardClaims{
+	token := jwt.NewWithClaims(jwt.GetSigningMethod(algorithm), &jwt.StandardClaims{
 		IssuedAt:  t.Unix(),
 		ExpiresAt: t.Add(time.Minute * 120).Unix(),
-		Audience:  ProjectID,
+		Audience:  projectID,
 	})
 	pass, err := token.SignedString(key)
 	if err != nil {
@@ -112,7 +112,7 @@ func newMQTTClient() mqtt.Client {
 
 	// configure MQTT client
 	opts := mqtt.NewClientOptions().
-		AddBroker(Server).
+		AddBroker(server).
 		SetClientID(clientID).
 		SetUsername(Username).
 		SetTLSConfig(&tls.Config{MinVersion: tls.VersionTLS12}).

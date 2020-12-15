@@ -12,6 +12,8 @@ static inline const rosidl_message_type_support_t * ts_vgb(){
 }
 */
 import "C"
+
+//VehicleGlobalPosition ROS px4 message struct
 type VehicleGlobalPosition struct {
     Timestamp uint64
     Timestamp_sample uint64
@@ -29,6 +31,7 @@ type VehicleGlobalPosition struct {
     DeadReckoning bool
 }
 
+//TypeSupport ROS msg typesupport
 func (t* VehicleGlobalPosition) TypeSupport() unsafe.Pointer{
     return unsafe.Pointer(C.ts_vgb())
 }

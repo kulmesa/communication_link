@@ -13,15 +13,15 @@ import (
 	types "github.com/ssrc-tii/fog_sw/ros2_ws/src/communication_link/types"
 )
 
-type ControlCommand struct {
+type controlCommand struct {
 	Command   string
 	Payload   string
 	Timestamp time.Time
 }
 
 // handleControlCommand takes a command string and forwards it to mavlinkcmd
-func handleControlCommand(command string, pub *Publisher) {
-	var cmd ControlCommand
+func handleControlCommand(command string, pub *publisher) {
+	var cmd controlCommand
 	err := json.Unmarshal([]byte(command), &cmd)
 	if err != nil {
 		log.Printf("Could not unmarshal command: %v", err)
@@ -31,22 +31,22 @@ func handleControlCommand(command string, pub *Publisher) {
 	switch cmd.Command {
 	case "takeoff":
 		log.Printf("Publishing 'takeoff' to /mavlinkcmd")
-		pub.DoPublish(types.GenerateString("takeoff"))
+		pub.doPublish(types.GenerateString("takeoff"))
 	case "land":
 		log.Printf("Publishing 'land' to /mavlinkcmd")
-		pub.DoPublish(types.GenerateString("land"))
+		pub.doPublish(types.GenerateString("land"))
 	case "start_mission":
 		log.Printf("Publishing 'start_mission' to /mavlinkcmd")
-		pub.DoPublish(types.GenerateString("start_mission"))
+		pub.doPublish(types.GenerateString("start_mission"))
 	case "pause_mission":
 		log.Printf("Publishing 'pause_mission' to /mavlinkcmd")
-		pub.DoPublish(types.GenerateString("pause_mission"))
+		pub.doPublish(types.GenerateString("pause_mission"))
 	case "resume_mission":
 		log.Printf("Publishing 'resume_mission' to /mavlinkcmd")
-		pub.DoPublish(types.GenerateString("resume_mission"))
+		pub.doPublish(types.GenerateString("resume_mission"))
 	case "return_home":
 		log.Printf("Publishing 'return_home' to /mavlinkcmd")
-		pub.DoPublish(types.GenerateString("return_home"))
+		pub.doPublish(types.GenerateString("return_home"))
 	//case "plan":
 	//	log.Printf("Publishing 'plan' to /mavlinkcmd")
 	//	msg.SetText("plan")
@@ -61,8 +61,8 @@ func handleControlCommand(command string, pub *Publisher) {
 
 
 // handleMissionCommand takes a command string and forwards it to mavlinkcmd
-func handleMissionCommand(command string, pub *Publisher) {
-	var cmd ControlCommand
+func handleMissionCommand(command string, pub *publisher) {
+	var cmd controlCommand
 	err := json.Unmarshal([]byte(command), &cmd)
 	if err != nil {
 		log.Printf("Could not unmarshal command: %v", err)
@@ -72,7 +72,7 @@ func handleMissionCommand(command string, pub *Publisher) {
 	case "new_mission":
 		log.Printf("Publishing mission to where ever")
 //		mission := new (types.PoseStamped)
-		pub.DoPublish(types.GeneratePath())
+		pub.doPublish(types.GeneratePath())
 	default:
 		log.Printf("Unknown command: %v", command)
 	}
@@ -84,15 +84,15 @@ func handleMissionCommand(command string, pub *Publisher) {
 func handleControlCommands(ctx context.Context, wg *sync.WaitGroup, commands <-chan string) {
 	wg.Add(1)
 	defer wg.Done()
-	pub := InitPublisher("mavlinkcmd","std_msgs/msg/String",(*types.String)(nil))
+	pub := initPublisher("mavlinkcmd","std_msgs/msg/String",(*types.String)(nil))
 /*	for i:=0 ; i<5; i++ {
 		time.Sleep(time.Second)
-		pub.DoPublish(types.GenerateString("testing"))
+		pub.doPublish(types.GenerateString("testing"))
 	}*/
 	for {
 		select {
 		case <-ctx.Done():
-			pub.Finish()
+			pub.finish()
 			return
 		case command := <-commands:
 			handleControlCommand(command, pub)
@@ -104,11 +104,11 @@ func handleControlCommands(ctx context.Context, wg *sync.WaitGroup, commands <-c
 func handleMissionCommands(ctx context.Context, wg *sync.WaitGroup, commands <-chan string) {
 	wg.Add(1)
 	defer wg.Done()
-	pub := InitPublisher("whereever","nav_msgs/msg/Path", (*types.Path)(nil))
+	pub := initPublisher("whereever","nav_msgs/msg/Path", (*types.Path)(nil))
 	for {
 		select {
 		case <-ctx.Done():
-			pub.Finish()
+			pub.finish()
 			return
 		case command := <-commands:
 			handleMissionCommand(command, pub)
@@ -125,7 +125,7 @@ func startCommandHandlers(ctx context.Context, wg *sync.WaitGroup, mqttClient mq
 	go handleMissionCommands(ctx, wg, missionCommands)
 
 	log.Printf("Subscribing to MQTT commands")
-	commandTopic := fmt.Sprintf("/devices/%s/commands/", *DeviceID)
+	commandTopic := fmt.Sprintf("/devices/%s/commands/", *deviceID)
 	token := mqttClient.Subscribe(fmt.Sprintf("%v#", commandTopic), 0, func(client mqtt.Client, msg mqtt.Message) {
 		subfolder := strings.TrimPrefix(msg.Topic(), commandTopic)
 		switch subfolder {

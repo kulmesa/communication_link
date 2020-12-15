@@ -16,29 +16,29 @@ const (
 	retain = false
 )
 
-type Telemetry struct {
-	Coordinates Coordinates
-	DeviceId    string
+type telemetry struct {
+	Coordinates coordinates
+	DeviceID    string
 }
-type Coordinates struct {
+type coordinates struct {
 	Lat float64
 	Lng float64
 }
-type ROSCoordinates struct {
+type rosCoordinates struct {
 	Lat float64 `json:"lat"`
 	Lon float64 `json:"lon"`
 }
 
-type SensorData struct {
+type sensorData struct {
 	SensorCombined types.SensorCombined
-	DeviceId    string
+	DeviceID    string
 }
 
-func sendGPSLocation(mqttClient mqtt.Client, coordinates Coordinates) {
-	topic := fmt.Sprintf("/devices/%s/%s", *DeviceID, "events")
-	t := Telemetry{
+func sendGPSLocation(mqttClient mqtt.Client, coordinates coordinates) {
+	topic := fmt.Sprintf("/devices/%s/%s", *deviceID, "events")
+	t := telemetry{
 		Coordinates: coordinates,
-		DeviceId:    *DeviceID,
+		DeviceID:    *deviceID,
 	}
 	b, _ := json.Marshal(t)
 	mqttClient.Publish(topic, qos, retain, string(b))
@@ -46,10 +46,10 @@ func sendGPSLocation(mqttClient mqtt.Client, coordinates Coordinates) {
 
 
 func sendSensorData(mqttClient mqtt.Client, data types.SensorCombined) {
-	topic := fmt.Sprintf("/devices/%s/%s", *DeviceID, "events/sensordata")
-	t := SensorData{
+	topic := fmt.Sprintf("/devices/%s/%s", *deviceID, "events/sensordata")
+	t := sensorData{
 		SensorCombined: data,
-		DeviceId:    *DeviceID,
+		DeviceID:    *deviceID,
 	}
 	b, _ := json.Marshal(t)
 	log.Printf(string(b))
@@ -60,18 +60,18 @@ func sendSensorData(mqttClient mqtt.Client, data types.SensorCombined) {
 func handleGPSMessages(ctx context.Context, mqttClient mqtt.Client) {
 	messages := make (chan types.VehicleGlobalPosition)
 	log.Printf("Creating subscriber for %s", "VehicleGlobalPosition")
-	sub := InitSubscriber(messages, "VehicleGlobalPosition_PubSubTopic","px4_msgs/msg/VehicleGlobalPosition")
-	go sub.DoSubscribe()
+	sub := initSubscriber(messages, "VehicleGlobalPosition_PubSubTopic","px4_msgs/msg/VehicleGlobalPosition")
+	go sub.doSubscribe()
 	go func (){
 		for m:=range messages{
 //			log.Printf("Lon: %f,  Lat:%f",m.Lat, m.Lon)
-			sendGPSLocation(mqttClient, Coordinates{m.Lat, m.Lon})
+			sendGPSLocation(mqttClient, coordinates{m.Lat, m.Lon})
 		}
 	}()
 	for {
 		select {
 		case <-ctx.Done():
-			sub.Finish()
+			sub.finish()
 			return
 		}
 	}
@@ -80,8 +80,8 @@ func handleGPSMessages(ctx context.Context, mqttClient mqtt.Client) {
 func handleSensorMessages(ctx context.Context, mqttClient mqtt.Client) {
 	messages := make (chan types.SensorCombined)
 	log.Printf("Creating subscriber for %s", "SensorCombined")
-	sub := InitSubscriber(messages, "SensorCombined_PubSubTopic","px4_msgs/msg/SensorCombined")
-	go sub.DoSubscribe()
+	sub := initSubscriber(messages, "SensorCombined_PubSubTopic","px4_msgs/msg/SensorCombined")
+	go sub.doSubscribe()
 	go func (){
 		for m:=range messages{
 			sendSensorData(mqttClient,m)
@@ -91,7 +91,7 @@ func handleSensorMessages(ctx context.Context, mqttClient mqtt.Client) {
 	for {
 		select {
 		case <-ctx.Done():
-			sub.Finish()
+			sub.finish()
 			return
 		}
 	}

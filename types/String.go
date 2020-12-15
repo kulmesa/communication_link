@@ -16,25 +16,30 @@ static inline const rosidl_message_type_support_t * ts_string(){
 */
 import "C"
 
+//String ROS std message struct
 type String struct {
 	Data *C.char
 	Size int
     Capacity int
 }
 
+//TypeSupport ROS msg typesupport
 func (t* String) TypeSupport() unsafe.Pointer{
     fmt.Println("TypeSupport String called")
     return unsafe.Pointer(C.ts_string())
 }
 
+//GetData data getter
 func (t* String) GetData() unsafe.Pointer{
     return unsafe.Pointer(t)
 }
 
+//Finish resource release
 func (t* String) Finish() {
     //C.free(unsafe.Pointer(t.Data))
 }
 
+//GenerateString generate String datatype fro string
 func GenerateString(data string) *String{
     t := new(String)
     t.Data = C.CString(data)

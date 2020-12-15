@@ -14,12 +14,13 @@ static inline const rosidl_message_type_support_t * ts_sc(){
 import "C"
 
 const (
-    SensorCombined_RELATIVE_TIMESTAMP_INVALID int32 = 2147483647
-    SensorCombined_CLIPPING_X uint8 = 1
-    SensorCombined_CLIPPING_Y uint8 = 2
-    SensorCombined_CLIPPING_Z uint8 = 4
+    sensorCombinedRELATIVETIMESTAMPIINVALID int32 = 2147483647
+    sensorCombinedCLIPPINGX uint8 = 1
+    sensorCombinedCLIPPINGY uint8 = 2
+    sensorCombinedCLIPPINGZ uint8 = 4
 )
 
+//SensorCombined ROS px4 message struct
 type SensorCombined struct {
     Timestamp uint64
     GyroRad [3]float32
@@ -30,6 +31,7 @@ type SensorCombined struct {
     AccelerometerClipping uint8
 }
 
+//TypeSupport ROS msg typesupport
 func (t* SensorCombined) TypeSupport() unsafe.Pointer{
     return unsafe.Pointer(C.ts_sc())
 }
