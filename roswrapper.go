@@ -1,6 +1,7 @@
 package main
 import (
 	"fmt"
+	"context"
 //	types "github.com/ssrc-tii/fog_sw/ros2_ws/src/communication_link/types"
 	"sync"
 	"strings"
@@ -300,24 +301,30 @@ func initSubscriber(messages interface{},topic string, msgtype string) *subscrib
 	return s
 }
 
-func (s subscriber)doSubscribe(/*messages interface{},topic string, msgtype string*/){
+func (s subscriber)doSubscribe(ctx context.Context){
 	fmt.Println("subscribing")
 	msgType := s.chanType.Elem()
 	msg := reflect.New(msgType)
 	method := msg.MethodByName("TypeSupport")
 	result := method.Call(nil)	
-
 	nameC := C.CString(s.name)
 	for{
-		C.take_msg(unsafe.Pointer(s.rclPtrs.subscriptionPtr),
-			unsafe.Pointer(s.rclPtrs.serMsgPtr),
-			unsafe.Pointer(result[0].Pointer()),
-			C.int(msgType.Size()),
-			nameC,
-			C.int(s.index) )
-		time.Sleep(100*time.Millisecond)
+
+		select {
+		case <-ctx.Done():
+			C.free(unsafe.Pointer(nameC))
+			return
+		default:
+			C.take_msg(unsafe.Pointer(s.rclPtrs.subscriptionPtr),
+				unsafe.Pointer(s.rclPtrs.serMsgPtr),
+				unsafe.Pointer(result[0].Pointer()),
+				C.int(msgType.Size()),
+				nameC,
+				C.int(s.index) )
+			time.Sleep(100*time.Millisecond)
+		}
 	}
-	C.free(unsafe.Pointer(nameC))
+	
 }
 
 func (s subscriber) finish(){
