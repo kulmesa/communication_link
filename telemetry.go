@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"log"
 	"sync"
-
+	uuid "github.com/google/uuid"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	types "github.com/ssrc-tii/fog_sw/ros2_ws/src/communication_link/types"
 )
@@ -30,8 +30,9 @@ type rosCoordinates struct {
 }
 
 type sensorData struct {
-	SensorCombined types.SensorCombined
+	SensorData types.SensorCombined
 	DeviceID    string
+	MessageID		string
 }
 
 func sendGPSLocation(mqttClient mqtt.Client, coordinates coordinates) {
@@ -47,12 +48,14 @@ func sendGPSLocation(mqttClient mqtt.Client, coordinates coordinates) {
 
 func sendSensorData(mqttClient mqtt.Client, data types.SensorCombined) {
 	topic := fmt.Sprintf("/devices/%s/%s", *deviceID, "events/sensordata")
+	u := uuid.New()
 	t := sensorData{
-		SensorCombined: data,
-		DeviceID:    *deviceID,
+		SensorData: data,
+		DeviceID:   *deviceID,
+		MessageID: 		u.String(),
 	}
 	b, _ := json.Marshal(t)
-	log.Printf(string(b))
+	//log.Printf(string(b))
 	mqttClient.Publish(topic, qos, retain, string(b))
 }
 
