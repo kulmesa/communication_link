@@ -17,29 +17,24 @@ const (
 )
 
 type telemetry struct {
-	Coordinates coordinates
+	GpsData types.VehicleGlobalPosition
 	DeviceID    string
-}
-type coordinates struct {
-	Lat float64
-	Lng float64
-}
-type rosCoordinates struct {
-	Lat float64 `json:"lat"`
-	Lon float64 `json:"lon"`
+	MessageID	string
 }
 
 type sensorData struct {
 	SensorData types.SensorCombined
 	DeviceID    string
-	MessageID		string
+	MessageID	string
 }
 
-func sendGPSLocation(mqttClient mqtt.Client, coordinates coordinates) {
+func sendGPSData(mqttClient mqtt.Client, gpsdata types.VehicleGlobalPosition) {
 	topic := fmt.Sprintf("/devices/%s/%s", *deviceID, "events")
+	u := uuid.New()
 	t := telemetry{
-		Coordinates: coordinates,
-		DeviceID:    *deviceID,
+		GpsData:    gpsdata,
+		DeviceID:   *deviceID,
+		MessageID:	u.String(),
 	}
 	b, _ := json.Marshal(t)
 	mqttClient.Publish(topic, qos, retain, string(b))
@@ -52,10 +47,9 @@ func sendSensorData(mqttClient mqtt.Client, data types.SensorCombined) {
 	t := sensorData{
 		SensorData: data,
 		DeviceID:   *deviceID,
-		MessageID: 		u.String(),
+		MessageID: 	u.String(),
 	}
 	b, _ := json.Marshal(t)
-	//log.Printf(string(b))
 	mqttClient.Publish(topic, qos, retain, string(b))
 }
 
@@ -68,7 +62,7 @@ func handleGPSMessages(ctx context.Context, mqttClient mqtt.Client) {
 	go func (){
 		for m:=range messages{
 //			log.Printf("Lon: %f,  Lat:%f",m.Lat, m.Lon)
-			sendGPSLocation(mqttClient, coordinates{m.Lat, m.Lon})
+			sendGPSData(mqttClient, m)
 		}
 	}()
 	for {
