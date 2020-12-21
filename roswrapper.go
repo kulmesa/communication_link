@@ -1,7 +1,8 @@
 package main
 import (
 	"fmt"
-	types "github.com/ssrc-tii/fog_sw/ros2_ws/src/communication_link/types"
+	"context"
+//	types "github.com/ssrc-tii/fog_sw/ros2_ws/src/communication_link/types"
 	"sync"
 	"strings"
 	"unsafe"
@@ -10,21 +11,22 @@ import (
 )
 
 /*
-#cgo LDFLAGS: -L/opt/ros/foxy/lib -L${SRCDIR}/../../install/px4_msgs/lib -Wl,-rpath=/opt/ros/foxy/lib -lrcl -lrosidl_runtime_c -lrosidl_typesupport_cpp -lrosidl_typesupport_c -lstd_msgs__rosidl_generator_c -lstd_msgs__rosidl_typesupport_c -lrcutils -lrmw_implementation -lpx4_msgs__rosidl_typesupport_c
+#cgo LDFLAGS: -L/opt/ros/foxy/lib -L${SRCDIR}/../../install/px4_msgs/lib -Wl,-rpath=/opt/ros/foxy/lib -lrcl -lrosidl_runtime_c -lrosidl_typesupport_c -lstd_msgs__rosidl_generator_c -lstd_msgs__rosidl_typesupport_c -lrcutils -lrmw_implementation -lpx4_msgs__rosidl_typesupport_c -lnav_msgs__rosidl_typesupport_c -lnav_msgs__rosidl_generator_c
 #cgo CFLAGS: -I/opt/ros/foxy/include -I${SRCDIR}/../../install/px4_msgs/include/
-#include "px4_msgs/msg/vehicle_global_position.h"
+//#include "px4_msgs/msg/vehicle_global_position.h"
 #include "rcutils/types/uint8_array.h"
 #include "rcl/subscription.h"
 #include "rcl/publisher.h"
 #include "rcl/rcl.h"
 #include "rcl/node.h"
 #include "std_msgs/msg/string.h"
+#include "nav_msgs/msg/path.h"
+#include "rosidl_runtime_c/string.h"
 
-extern void GoCallback();
+extern void goCallback();
 static inline void Callback(int size, void* data, void* name, int index){
-	GoCallback(size, data, name, index);
+	goCallback(size, data, name, index);
 }
-
 typedef rcl_context_t* rcl_context_t_ptr;
 typedef rcl_node_t* rcl_node_t_ptr;
 typedef rcl_publisher_t* rcl_publisher_t_ptr;
@@ -69,7 +71,7 @@ static inline void* init_ros_node(void* ctx, char* name, char* namespace){
 	return (void*)node_ptr; 
 }
 
-static inline void* init_publisher(void* ctx, void* node, char* topic){
+static inline void* init_publisher(void* ctx, void* node, char* topic, void* ts){
 	printf("init publisher begin\n"); 
 	publisher_t* pub =malloc(sizeof(publisher_t));
 	rcl_ret_t ret;
@@ -79,32 +81,53 @@ static inline void* init_publisher(void* ctx, void* node, char* topic){
 	rcl_publisher_options_t publisher_options;
 	pub->pub_ptr = malloc(sizeof(rcl_publisher_t));
   	*pub->pub_ptr = rcl_get_zero_initialized_publisher();
-  	pub->pub_options = rcl_publisher_get_default_options();
-   	const rosidl_message_type_support_t * ts = ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, String);
-	ret = rcl_publisher_init(pub->pub_ptr, node_ptr, ts, topic, &pub->pub_options);
+	pub->pub_options = rcl_publisher_get_default_options();
+	ret = rcl_publisher_init(pub->pub_ptr, node_ptr,  (const rosidl_message_type_support_t*)ts, topic, &pub->pub_options);
 	printf("init publisher after rcl_publisher_init\n"); 
   	return (void*)pub;
 }
 
-static inline void do_publish_c(void* publisher, char* data){
+static inline void do_publish_c(void* publisher,char* msgtype, void* data){
 	rcl_publisher_t* pub = (rcl_publisher_t*)publisher;
-	std_msgs__msg__String pub_msg;
-	std_msgs__msg__String__init(&pub_msg);
-	pub_msg.data.data = malloc(strlen(data)+1);
-	strcpy(pub_msg.data.data,data);
-	pub_msg.data.capacity = strlen(data)+1;
-	pub_msg.data.size = strlen(data);
-	rcl_ret_t ret = rcl_publish(pub, &pub_msg,NULL);
+	rcl_ret_t ret = RCL_RET_ERROR;
+	if (strncmp(msgtype, "nav_msgs/msg/Path", strlen(msgtype))==0 ){
+		nav_msgs__msg__Path pub_msg;
+		pub_msg.header.frame_id.data = malloc(2);
+		pub_msg.header.frame_id.data = "1";
+		pub_msg.header.frame_id.size = 1;
+		pub_msg.header.frame_id.capacity = 2;
+		pub_msg.poses.data = data;
+		pub_msg.poses.capacity = 1;
+		pub_msg.poses.size = 1;
+		ret = rcl_publish(pub, &pub_msg,NULL);
+//		nav_msgs__msg__Path__fini(&pub_msg);
+//		printf("before free\n");
+//		free(pub_msg.header.frame_id.data);
+//		printf("after free\n");
+		printf("published nav\n");
+
+	}
+	else if (strncmp(msgtype, "std_msgs/msg/String", strlen(msgtype))==0){
+		std_msgs__msg__String pub_msg;
+		std_msgs__msg__String__init(&pub_msg);
+		rosidl_runtime_c__String* t = (rosidl_runtime_c__String*)data;
+		pub_msg.data.data = t->data;
+		pub_msg.data.capacity = t->capacity;
+		pub_msg.data.size = t->size;
+		ret = rcl_publish(pub, &pub_msg,NULL);
+		std_msgs__msg__String__fini(&pub_msg);
+		printf("published str\n");
+	}
 	if (ret != RCL_RET_OK)
 	{
-		printf("Failed to publish: %s\n", data);
+		printf("Failed to publish: %d\n", ret);
 	}
-    std_msgs__msg__String__fini(&pub_msg);
 }
 
 
 typedef struct Subscriber_C {
 	 rcl_subscription_t_ptr sub_ptr;
+ 	 rcl_subscription_options_t sub_options;
 	 rcutils_allocator_t allocator;
 	 rcl_serialized_message_t_ptr ser_msg_ptr;
 } subscriber_t;
@@ -115,16 +138,18 @@ static inline void* init_subscriber(void* ctx, void* node, char* topic, char* ms
 	rcl_ret_t ret;
 	rcl_context_t_ptr ctx_ptr = (rcl_context_t_ptr)ctx;
 	rcl_node_t_ptr node_ptr = (rcl_node_t_ptr)node;	
+	printf("ctx_ptr: %p  node_ptr:%p\n", ctx_ptr, node_ptr);
 
-	rcl_subscription_options_t subscription_options = rcl_subscription_get_default_options();
+	//rcl_subscription_options_t subscription_options = rcl_subscription_get_default_options();
+	sub->sub_options = rcl_subscription_get_default_options();
 	sub->allocator = rcutils_get_default_allocator();
 
 	sub->sub_ptr = malloc(sizeof(rcl_subscription_t));
 	*sub->sub_ptr = rcl_get_zero_initialized_subscription();
 
-	ret = rcl_subscription_init (sub->sub_ptr, node_ptr, (const rosidl_message_type_support_t*)ts, topic, &subscription_options);
+	ret = rcl_subscription_init (sub->sub_ptr, node_ptr, (const rosidl_message_type_support_t*)ts, topic, &sub->sub_options);
 	if (ret != RCL_RET_OK) {
-		printf("Failed to create subscriber.\n");
+		printf("Failed to create subscriber\n");
 		return NULL;
 	}
 	sub->ser_msg_ptr = malloc(sizeof(rcl_serialized_message_t));
@@ -132,7 +157,7 @@ static inline void* init_subscriber(void* ctx, void* node, char* topic, char* ms
 	int initial_capacity_ser = 0u;
 	ret = rmw_serialized_message_init(sub->ser_msg_ptr, initial_capacity_ser, &sub->allocator);
 	if (ret != RCL_RET_OK) {
-		printf("Failed to create subscriber.\n");
+		printf("Failed to create serialized message.\n");
 		return NULL;
 	}
 	return (void*)sub;
@@ -140,7 +165,6 @@ static inline void* init_subscriber(void* ctx, void* node, char* topic, char* ms
 
 static inline void* take_msg(void* sub, void* ser_msg, void* ts, int typesize,char* name, int index)
 {
-//	printf("take message called %d\n", typesize);
 	rcl_subscription_t* s = (rcl_subscription_t*)sub;
 	rcl_serialized_message_t* msg = (rcl_serialized_message_t*)ser_msg;
 	rcl_ret_t ret = rcl_take_serialized_message(s, msg, NULL, NULL);
@@ -154,140 +178,168 @@ static inline void* take_msg(void* sub, void* ser_msg, void* ts, int typesize,ch
 */
 import "C"
 
-var global_messages chan <- types.VehicleGlobalPosition
-var global_str_messages chan <- string
+//var global_messages chan <- types.VehicleGlobalPosition
+//var global_str_messages chan <- string
 var wg sync.WaitGroup
+var	ctxPtr C.rcl_context_t_ptr;
+var	nodePtr C.rcl_node_t_ptr;
 
-var	ctx_ptr C.rcl_context_t_ptr;
-var	node_ptr C.rcl_node_t_ptr;
-
-func InitRosNode(namespace string){
-	fmt.Println("init sros")
-	ns := strings.ReplaceAll(namespace,"/","")
-	ns = strings.ReplaceAll(ns,"-","")
-	ctx_ptr = C.rcl_context_t_ptr(C.init_ros_ctx());
-	node_ptr = C.rcl_node_t_ptr(C.init_ros_node(unsafe.Pointer(ctx_ptr), C.CString("communication_link_pub"),C.CString(ns)))
+type msgType interface{
+	TypeSupport() unsafe.Pointer
+	GetData() unsafe.Pointer
+	Finish()
 }
 
-func ShutdownRosNode(){
+func initRosNode(namespace string){
+	fmt.Println("init ros")
+	ns := strings.ReplaceAll(namespace,"/","")
+	ns = strings.ReplaceAll(ns,"-","")
+	ctxPtr = C.rcl_context_t_ptr(C.init_ros_ctx());
+	nodeNameC := C.CString("communication_link")
+	nsc := C.CString(ns)
+	nodePtr = C.rcl_node_t_ptr(C.init_ros_node(unsafe.Pointer(ctxPtr),nodeNameC ,nsc))
+	C.free(unsafe.Pointer(nsc))
+	C.free(unsafe.Pointer(nodeNameC))
+}
+
+func shutdownRosNode(){
 	fmt.Println("shutdown ros")
-	C.rcl_node_fini(node_ptr)
-	C.free(unsafe.Pointer(node_ptr))
-	C.rcl_shutdown(ctx_ptr)
-	C.rcl_context_fini(ctx_ptr)
-	C.free(unsafe.Pointer(ctx_ptr))
+	C.rcl_node_fini(nodePtr)
+	C.free(unsafe.Pointer(nodePtr))
+	C.rcl_shutdown(ctxPtr)
+	C.rcl_context_fini(ctxPtr)
+	C.free(unsafe.Pointer(ctxPtr))
 }
 
 /////// Publisher ///////
-type rclc_pub_ptrs_t struct{
-	publisher_options C.rcl_publisher_options_t
-	publisher_ptr C.rcl_publisher_t_ptr
+type rclcPubPtrs struct{
+	publisherOptions C.rcl_publisher_options_t
+	publisherPtr C.rcl_publisher_t_ptr
 }
 
-type Publisher struct{
-	rcl_ptrs *rclc_pub_ptrs_t
+type publisher struct{
+	rclPtrs *rclcPubPtrs
 	msgtypestr string
-	chanType reflect.Type
-	chanValue reflect.Value
-	publisher_ptr unsafe.Pointer
+	publisherPtr unsafe.Pointer
 }
 
-func InitPublisher(topic string) *Publisher{
-	fmt.Println("init publisher:" + topic)
-	pub := new(Publisher)
-	pub.rcl_ptrs = (*rclc_pub_ptrs_t)(C.init_publisher(unsafe.Pointer(ctx_ptr),unsafe.Pointer(node_ptr), C.CString(topic)))
+func initPublisher(topic string, msgtype string, typeinterface msgType) *publisher{
+	fmt.Println("init publisher:" + topic + " msgtype:" + msgtype )
+	pub := new(publisher)
+	pub.msgtypestr = msgtype
+	topicC := C.CString(topic)
+	pub.rclPtrs = (*rclcPubPtrs)(C.init_publisher(unsafe.Pointer(ctxPtr),unsafe.Pointer(nodePtr), C.CString(topic), typeinterface.TypeSupport()))
+	C.free(unsafe.Pointer(topicC))
+	fmt.Println("init publisher END : " + topic + " msgtype:" + msgtype )
 	return pub
 }
 
-func (p Publisher) DoPublish(data string){
-	fmt.Println("do publish" , data)
-	C.do_publish_c(unsafe.Pointer(p.rcl_ptrs.publisher_ptr),C.CString(data))
+func (p publisher) doPublish(data msgType){
+	t := data.GetData()
+	msgtypeC := C.CString(p.msgtypestr)
+	C.do_publish_c(unsafe.Pointer(p.rclPtrs.publisherPtr),msgtypeC,t)
+//	C.do_publish_c(unsafe.Pointer(p.rcl_ptrs.publisher_ptr),unsafe.Pointer(&(t.Poses[0])), C.int(unsafe.Sizeof(t.Poses[0])))
+	C.free(unsafe.Pointer(msgtypeC))
+	data.Finish()
 }
 
-func (p Publisher) Finish(){
+func (p publisher) finish(){
 	//finish and clean rclc here
-	C.rcl_publisher_fini(p.rcl_ptrs.publisher_ptr,node_ptr)
-	C.free(unsafe.Pointer(p.rcl_ptrs.publisher_ptr))
+	C.rcl_publisher_fini(p.rclPtrs.publisherPtr,nodePtr)
+	C.free(unsafe.Pointer(p.rclPtrs.publisherPtr))
 }
 
 /////// Subscriber ///////
-type rclc_sub_ptrs_t struct{
-	subscription_ptr C.rcl_subscription_t_ptr
+type rclcSubPtrs struct{
+	subscriptionPtr C.rcl_subscription_t_ptr
+	subOptions C.rcl_subscription_options_t
 	allocator C.rcutils_allocator_t
-	ser_msg_ptr C.rcl_serialized_message_t_ptr
+	serMsgPtr C.rcl_serialized_message_t_ptr
 }
 
-type Subscriber struct{
+type subscriber struct{
 	name string
 	topic string
 	msgtypestr string
 	chanType reflect.Type
 	chanValue reflect.Value
 	index int
-	rcl_ptrs *rclc_sub_ptrs_t
+	rclPtrs *rclcSubPtrs
 }
-var SubscriberArr []Subscriber
+var subscriberArr []subscriber
 
-func InitSubscriber(messages interface{},topic string, msgtype string) *Subscriber{
+func initSubscriber(messages interface{},topic string, msgtype string) *subscriber{
 	fmt.Println("init subscriber")
-	s := new(Subscriber)
+	s := new(subscriber)
 	s.chanType = reflect.TypeOf(messages)
 	s.chanValue = reflect.ValueOf(messages)
 	msgType := s.chanType.Elem()
 	fmt.Printf("%+v (%+v)\n", s.chanType, reflect.PtrTo(msgType))
-	sub_name := "sub_" + strings.ReplaceAll(topic,"/","")
-	s.name = sub_name
+	subName := "sub_" + strings.ReplaceAll(topic,"/","")
+	s.name = subName
 	s.topic = topic
 	s.msgtypestr = msgtype
-	SubscriberArr = append(SubscriberArr,*s)
-	s.index = len(SubscriberArr)-1
+	subscriberArr = append(subscriberArr,*s)
+	s.index = len(subscriberArr)-1
 
 	msg := reflect.New(msgType)
 	method := msg.MethodByName("TypeSupport")
 	result := method.Call(nil)	
 
-	s.rcl_ptrs = (*rclc_sub_ptrs_t)(C.init_subscriber(
-		unsafe.Pointer(ctx_ptr),
-		unsafe.Pointer(node_ptr),
-		C.CString(s.topic),
-		C.CString(s.msgtypestr),
+	topicC := C.CString(s.topic)
+	msgtypeC := C.CString(s.msgtypestr)
+	s.rclPtrs = (*rclcSubPtrs)(C.init_subscriber(
+		unsafe.Pointer(ctxPtr),
+		unsafe.Pointer(nodePtr),
+		topicC,
+		msgtypeC,
 		unsafe.Pointer(result[0].Pointer()),
 		))
+	C.free(unsafe.Pointer(topicC))
+	C.free(unsafe.Pointer(msgtypeC))
+	fmt.Println("init subscriber END")
 	return s
-
 }
 
-func (s Subscriber)DoSubscribe(/*messages interface{},topic string, msgtype string*/){
+func (s subscriber)doSubscribe(ctx context.Context){
 	fmt.Println("subscribing")
 	msgType := s.chanType.Elem()
 	msg := reflect.New(msgType)
 	method := msg.MethodByName("TypeSupport")
 	result := method.Call(nil)	
-
+	nameC := C.CString(s.name)
 	for{
-		C.take_msg(unsafe.Pointer(s.rcl_ptrs.subscription_ptr),
-			unsafe.Pointer(s.rcl_ptrs.ser_msg_ptr),
-			unsafe.Pointer(result[0].Pointer()),
-			C.int(msgType.Size()),
-			C.CString(s.name),
-			C.int(s.index) )
-		time.Sleep(100*time.Millisecond)
+
+		select {
+		case <-ctx.Done():
+			C.free(unsafe.Pointer(nameC))
+			return
+		default:
+			C.take_msg(unsafe.Pointer(s.rclPtrs.subscriptionPtr),
+				unsafe.Pointer(s.rclPtrs.serMsgPtr),
+				unsafe.Pointer(result[0].Pointer()),
+				C.int(msgType.Size()),
+				nameC,
+				C.int(s.index) )
+			time.Sleep(100*time.Millisecond)
+		}
 	}
+	
 }
 
-func (s Subscriber) Finish(){
+func (s subscriber) finish(){
 	//finish and clean rclc here
 	fmt.Println("Finish subscriber")
-	C.rcutils_uint8_array_fini(s.rcl_ptrs.ser_msg_ptr);
-	C.rcl_subscription_fini(s.rcl_ptrs.subscription_ptr,node_ptr)
-	C.free(unsafe.Pointer(s.rcl_ptrs.subscription_ptr))
+	C.rcutils_uint8_array_fini(s.rclPtrs.serMsgPtr);
+	C.rcl_subscription_fini(s.rclPtrs.subscriptionPtr,nodePtr)
+	C.free(unsafe.Pointer(s.rclPtrs.subscriptionPtr))
 	fmt.Println("Finished subscriber")
 }
 
 
-//export GoCallback
-func GoCallback(size C.int, data unsafe.Pointer, name unsafe.Pointer, index C.int){
-	sub := SubscriberArr[index]
+//export goCallback
+func goCallback(size C.int, data unsafe.Pointer, name unsafe.Pointer, index C.int){
+	sub := subscriberArr[index]
 	n := C.GoString((*C.char)(name))
 	if (sub.name==n){
 		msgType := sub.chanType.Elem()
@@ -295,7 +347,7 @@ func GoCallback(size C.int, data unsafe.Pointer, name unsafe.Pointer, index C.in
 		sub.chanValue.Send(reflect.Indirect(d))
 	}else{
 		//if name does not match, search correct sub from array
-		for _,s := range SubscriberArr{
+		for _,s := range subscriberArr{
 			if s.name == n{
 				msgType := s.chanType.Elem()
 				d := reflect.NewAt(msgType, data)

@@ -5,5 +5,6 @@ go 1.14
 require (
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/eclipse/paho.mqtt.golang v1.2.0
+	github.com/google/uuid v1.1.2
 	golang.org/x/net v0.0.0-20201010224723-4f7140c49acb // indirect
 )
