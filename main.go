@@ -18,16 +18,17 @@ import (
 )
 
 const (
-	RegistryID = "fleet-registry"
-	ProjectID  = "auto-fleet-mgnt"
-	Region     = "europe-west1"
-	Algorithm  = "RS256"
-	Server     = "ssl://mqtt.googleapis.com:8883"
+	RegistryID    = "fleet-registry"
+	ProjectID     = "auto-fleet-mgnt"
+	Region        = "europe-west1"
+	Algorithm     = "RS256"
+	DefaultServer = "ssl://mqtt.googleapis.com:8883"
 )
 
 var (
-	DeviceID       = flag.String("device_id", "", "The provisioned device id")
-	PrivateKeyPath = flag.String("private_key", "/enclave/rsa_private.pem", "The private key for the MQTT authentication")
+	DeviceID          = flag.String("device_id", "", "The provisioned device id")
+	MQTTBrokerAddress = flag.String("mqtt_broker", "", "MQTT broker protocol, address and port")
+	PrivateKeyPath    = flag.String("private_key", "/enclave/rsa_private.pem", "The private key for the MQTT authentication")
 )
 
 // MQTT parameters
@@ -71,6 +72,11 @@ func main() {
 }
 
 func newMQTTClient() mqtt.Client {
+	serverAddress := *MQTTBrokerAddress
+	if serverAddress == "" {
+		serverAddress = DefaultServer
+	}
+	log.Printf("address: %v", serverAddress)
 
 	// generate MQTT client
 	clientID := fmt.Sprintf(
@@ -112,7 +118,7 @@ func newMQTTClient() mqtt.Client {
 
 	// configure MQTT client
 	opts := mqtt.NewClientOptions().
-		AddBroker(Server).
+		AddBroker(serverAddress).
 		SetClientID(clientID).
 		SetUsername(Username).
 		SetTLSConfig(&tls.Config{MinVersion: tls.VersionTLS12}).
