@@ -12,8 +12,8 @@ import (
 )
 
 /*
-#cgo LDFLAGS: -L/opt/ros/foxy/lib -L${SRCDIR}/../../install/px4_msgs/lib -Wl,-rpath=/opt/ros/foxy/lib -lrcl -lrosidl_runtime_c -lrosidl_typesupport_c -lstd_msgs__rosidl_generator_c -lstd_msgs__rosidl_typesupport_c -lrcutils -lrmw_implementation -lpx4_msgs__rosidl_typesupport_c -lnav_msgs__rosidl_typesupport_c -lnav_msgs__rosidl_generator_c
-#cgo CFLAGS: -I/opt/ros/foxy/include -I${SRCDIR}/../../install/px4_msgs/include/
+#cgo LDFLAGS: -L/opt/ros/foxy/lib -Wl,-rpath=/opt/ros/foxy/lib -lrcl -lrosidl_runtime_c -lrosidl_typesupport_c -lstd_msgs__rosidl_generator_c -lstd_msgs__rosidl_typesupport_c -lrcutils -lrmw_implementation -lpx4_msgs__rosidl_typesupport_c -lnav_msgs__rosidl_typesupport_c -lnav_msgs__rosidl_generator_c
+#cgo CFLAGS: -I/opt/ros/foxy/include
 //#include "px4_msgs/msg/vehicle_global_position.h"
 #include "rcutils/types/uint8_array.h"
 #include "rcl/subscription.h"
@@ -35,8 +35,8 @@ typedef rcl_subscription_t* rcl_subscription_t_ptr;
 typedef rcl_serialized_message_t* rcl_serialized_message_t_ptr;
 
 typedef struct Publisher_C {
-	 rcl_publisher_options_t pub_options;
-	 rcl_publisher_t_ptr pub_ptr;
+	rcl_publisher_options_t pub_options;
+	rcl_publisher_t_ptr pub_ptr;
 } publisher_t;
 
 static inline void* init_ros_ctx(){
@@ -81,11 +81,11 @@ static inline void* init_publisher(void* ctx, void* node, char* topic, void* ts)
 	rcl_publisher_t publisher;
 	rcl_publisher_options_t publisher_options;
 	pub->pub_ptr = malloc(sizeof(rcl_publisher_t));
-  	*pub->pub_ptr = rcl_get_zero_initialized_publisher();
+	*pub->pub_ptr = rcl_get_zero_initialized_publisher();
 	pub->pub_options = rcl_publisher_get_default_options();
 	ret = rcl_publisher_init(pub->pub_ptr, node_ptr,  (const rosidl_message_type_support_t*)ts, topic, &pub->pub_options);
 	printf("init publisher after rcl_publisher_init\n");
-  	return (void*)pub;
+	return (void*)pub;
 }
 
 static inline void do_publish_c(void* publisher,char* msgtype, void* data){
@@ -127,10 +127,10 @@ static inline void do_publish_c(void* publisher,char* msgtype, void* data){
 
 
 typedef struct Subscriber_C {
-	 rcl_subscription_t_ptr sub_ptr;
- 	 rcl_subscription_options_t sub_options;
-	 rcutils_allocator_t allocator;
-	 rcl_serialized_message_t_ptr ser_msg_ptr;
+	rcl_subscription_t_ptr sub_ptr;
+	rcl_subscription_options_t sub_options;
+	rcutils_allocator_t allocator;
+	rcl_serialized_message_t_ptr ser_msg_ptr;
 } subscriber_t;
 
 static inline void* init_subscriber(void* ctx, void* node, char* topic, char* msgtype,void* ts)
