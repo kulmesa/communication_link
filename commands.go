@@ -59,7 +59,6 @@ func handleControlCommand(command string, pub *publisher) {
 	}
 }
 
-
 // handleMissionCommand takes a command string and forwards it to mavlinkcmd
 func handleMissionCommand(command string, pub *publisher) {
 	var cmd controlCommand
@@ -71,20 +70,18 @@ func handleMissionCommand(command string, pub *publisher) {
 	switch cmd.Command {
 	case "new_mission":
 		log.Printf("Publishing mission to where ever")
-//		mission := new (types.PoseStamped)
+		//		mission := new (types.PoseStamped)
 		pub.doPublish(types.GeneratePath())
 	default:
 		log.Printf("Unknown command: %v", command)
 	}
 }
 
-
-
 // handleControlCommands routine waits for commands and executes them. The routine quits when quit channel is closed
 func handleControlCommands(ctx context.Context, wg *sync.WaitGroup, commands <-chan string) {
 	wg.Add(1)
 	defer wg.Done()
-	pub := initPublisher("mavlinkcmd","std_msgs/msg/String",(*types.String)(nil))
+	pub := initPublisher("mavlinkcmd", "std_msgs/msg/String", (*types.String)(nil))
 	for {
 		select {
 		case <-ctx.Done():
@@ -100,7 +97,7 @@ func handleControlCommands(ctx context.Context, wg *sync.WaitGroup, commands <-c
 func handleMissionCommands(ctx context.Context, wg *sync.WaitGroup, commands <-chan string) {
 	wg.Add(1)
 	defer wg.Done()
-	pub := initPublisher("whereever","nav_msgs/msg/Path", (*types.Path)(nil))
+	pub := initPublisher("whereever", "nav_msgs/msg/Path", (*types.Path)(nil))
 	for {
 		select {
 		case <-ctx.Done():
@@ -116,7 +113,7 @@ func startCommandHandlers(ctx context.Context, wg *sync.WaitGroup, mqttClient mq
 
 	controlCommands := make(chan string)
 	missionCommands := make(chan string)
-	
+
 	go handleControlCommands(ctx, wg, controlCommands)
 	go handleMissionCommands(ctx, wg, missionCommands)
 

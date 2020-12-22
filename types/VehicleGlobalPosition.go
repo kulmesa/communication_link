@@ -15,23 +15,23 @@ import "C"
 
 //VehicleGlobalPosition ROS px4 message struct
 type VehicleGlobalPosition struct {
-    Timestamp uint64
-    Timestamp_sample uint64
-    Lat float64
-    Lon float64
-    Alt float32
-    AltEllipsoid float32
-    DeltaAlt float32
-    LatLonResetCounter uint8
-    AltResetCounter uint8
-    Eph float32
-    Epv float32
-    TerrainAlt float32
-    TerrainAltValid bool
-    DeadReckoning bool
+	Timestamp          uint64
+	Timestamp_sample   uint64
+	Lat                float64
+	Lon                float64
+	Alt                float32
+	AltEllipsoid       float32
+	DeltaAlt           float32
+	LatLonResetCounter uint8
+	AltResetCounter    uint8
+	Eph                float32
+	Epv                float32
+	TerrainAlt         float32
+	TerrainAltValid    bool
+	DeadReckoning      bool
 }
 
 //TypeSupport ROS msg typesupport
-func (t* VehicleGlobalPosition) TypeSupport() unsafe.Pointer{
-    return unsafe.Pointer(C.ts_vgb())
+func (t *VehicleGlobalPosition) TypeSupport() unsafe.Pointer {
+	return unsafe.Pointer(C.ts_vgb())
 }

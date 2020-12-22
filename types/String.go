@@ -18,33 +18,32 @@ import "C"
 
 //String ROS std message struct
 type String struct {
-	Data *C.char
-	Size int
-    Capacity int
+	Data     *C.char
+	Size     int
+	Capacity int
 }
 
 //TypeSupport ROS msg typesupport
-func (t* String) TypeSupport() unsafe.Pointer{
-    fmt.Println("TypeSupport String called")
-    return unsafe.Pointer(C.ts_string())
+func (t *String) TypeSupport() unsafe.Pointer {
+	fmt.Println("TypeSupport String called")
+	return unsafe.Pointer(C.ts_string())
 }
 
 //GetData data getter
-func (t* String) GetData() unsafe.Pointer{
-    return unsafe.Pointer(t)
+func (t *String) GetData() unsafe.Pointer {
+	return unsafe.Pointer(t)
 }
 
 //Finish resource release
-func (t* String) Finish() {
-    //C.free(unsafe.Pointer(t.Data))
+func (t *String) Finish() {
+	//C.free(unsafe.Pointer(t.Data))
 }
 
 //GenerateString generate String datatype fro string
-func GenerateString(data string) *String{
-    t := new(String)
-    t.Data = C.CString(data)
-    t.Size = len(data)
-    t.Capacity = t.Size+1
+func GenerateString(data string) *String {
+	t := new(String)
+	t.Data = C.CString(data)
+	t.Size = len(data)
+	t.Capacity = t.Size + 1
 	return t
 }
-

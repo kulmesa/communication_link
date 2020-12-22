@@ -1,13 +1,14 @@
 package main
+
 import (
-	"fmt"
 	"context"
-//	types "github.com/ssrc-tii/fog_sw/ros2_ws/src/communication_link/types"
-	"sync"
-	"strings"
-	"unsafe"
+	"fmt"
+	//	types "github.com/ssrc-tii/fog_sw/ros2_ws/src/communication_link/types"
 	"reflect"
+	"strings"
+	"sync"
 	"time"
+	"unsafe"
 )
 
 /*
@@ -53,7 +54,7 @@ static inline void* init_ros_ctx(){
 		printf("Failed to initialize rcl.\n");
 		return NULL;
 	}
-	return (void*)ctx_ptr; 
+	return (void*)ctx_ptr;
 }
 
 static inline void* init_ros_node(void* ctx, char* name, char* namespace){
@@ -68,22 +69,22 @@ static inline void* init_ros_node(void* ctx, char* name, char* namespace){
 		return NULL;
 	}
 	printf("Node created\n");
-	return (void*)node_ptr; 
+	return (void*)node_ptr;
 }
 
 static inline void* init_publisher(void* ctx, void* node, char* topic, void* ts){
-	printf("init publisher begin\n"); 
+	printf("init publisher begin\n");
 	publisher_t* pub =malloc(sizeof(publisher_t));
 	rcl_ret_t ret;
 	rcl_context_t_ptr ctx_ptr = (rcl_context_t_ptr)ctx;
-	rcl_node_t_ptr node_ptr = (rcl_node_t_ptr)node;	
+	rcl_node_t_ptr node_ptr = (rcl_node_t_ptr)node;
 	rcl_publisher_t publisher;
 	rcl_publisher_options_t publisher_options;
 	pub->pub_ptr = malloc(sizeof(rcl_publisher_t));
   	*pub->pub_ptr = rcl_get_zero_initialized_publisher();
 	pub->pub_options = rcl_publisher_get_default_options();
 	ret = rcl_publisher_init(pub->pub_ptr, node_ptr,  (const rosidl_message_type_support_t*)ts, topic, &pub->pub_options);
-	printf("init publisher after rcl_publisher_init\n"); 
+	printf("init publisher after rcl_publisher_init\n");
   	return (void*)pub;
 }
 
@@ -137,8 +138,7 @@ static inline void* init_subscriber(void* ctx, void* node, char* topic, char* ms
 	subscriber_t* sub = malloc(sizeof(subscriber_t));
 	rcl_ret_t ret;
 	rcl_context_t_ptr ctx_ptr = (rcl_context_t_ptr)ctx;
-	rcl_node_t_ptr node_ptr = (rcl_node_t_ptr)node;	
-	printf("ctx_ptr: %p  node_ptr:%p\n", ctx_ptr, node_ptr);
+	rcl_node_t_ptr node_ptr = (rcl_node_t_ptr)node;
 
 	//rcl_subscription_options_t subscription_options = rcl_subscription_get_default_options();
 	sub->sub_options = rcl_subscription_get_default_options();
@@ -181,28 +181,28 @@ import "C"
 //var global_messages chan <- types.VehicleGlobalPosition
 //var global_str_messages chan <- string
 var wg sync.WaitGroup
-var	ctxPtr C.rcl_context_t_ptr;
-var	nodePtr C.rcl_node_t_ptr;
+var ctxPtr C.rcl_context_t_ptr
+var nodePtr C.rcl_node_t_ptr
 
-type msgType interface{
+type msgType interface {
 	TypeSupport() unsafe.Pointer
 	GetData() unsafe.Pointer
 	Finish()
 }
 
-func initRosNode(namespace string){
+func initRosNode(namespace string) {
 	fmt.Println("init ros")
-	ns := strings.ReplaceAll(namespace,"/","")
-	ns = strings.ReplaceAll(ns,"-","")
-	ctxPtr = C.rcl_context_t_ptr(C.init_ros_ctx());
+	ns := strings.ReplaceAll(namespace, "/", "")
+	ns = strings.ReplaceAll(ns, "-", "")
+	ctxPtr = C.rcl_context_t_ptr(C.init_ros_ctx())
 	nodeNameC := C.CString("communication_link")
 	nsc := C.CString(ns)
-	nodePtr = C.rcl_node_t_ptr(C.init_ros_node(unsafe.Pointer(ctxPtr),nodeNameC ,nsc))
+	nodePtr = C.rcl_node_t_ptr(C.init_ros_node(unsafe.Pointer(ctxPtr), nodeNameC, nsc))
 	C.free(unsafe.Pointer(nsc))
 	C.free(unsafe.Pointer(nodeNameC))
 }
 
-func shutdownRosNode(){
+func shutdownRosNode() {
 	fmt.Println("shutdown ros")
 	C.rcl_node_fini(nodePtr)
 	C.free(unsafe.Pointer(nodePtr))
@@ -212,79 +212,79 @@ func shutdownRosNode(){
 }
 
 /////// Publisher ///////
-type rclcPubPtrs struct{
+type rclcPubPtrs struct {
 	publisherOptions C.rcl_publisher_options_t
-	publisherPtr C.rcl_publisher_t_ptr
+	publisherPtr     C.rcl_publisher_t_ptr
 }
 
-type publisher struct{
-	rclPtrs *rclcPubPtrs
-	msgtypestr string
+type publisher struct {
+	rclPtrs      *rclcPubPtrs
+	msgtypestr   string
 	publisherPtr unsafe.Pointer
 }
 
-func initPublisher(topic string, msgtype string, typeinterface msgType) *publisher{
-	fmt.Println("init publisher:" + topic + " msgtype:" + msgtype )
+func initPublisher(topic string, msgtype string, typeinterface msgType) *publisher {
+	fmt.Println("init publisher:" + topic + " msgtype:" + msgtype)
 	pub := new(publisher)
 	pub.msgtypestr = msgtype
 	topicC := C.CString(topic)
-	pub.rclPtrs = (*rclcPubPtrs)(C.init_publisher(unsafe.Pointer(ctxPtr),unsafe.Pointer(nodePtr), C.CString(topic), typeinterface.TypeSupport()))
+	pub.rclPtrs = (*rclcPubPtrs)(C.init_publisher(unsafe.Pointer(ctxPtr), unsafe.Pointer(nodePtr), C.CString(topic), typeinterface.TypeSupport()))
 	C.free(unsafe.Pointer(topicC))
-	fmt.Println("init publisher END : " + topic + " msgtype:" + msgtype )
+	fmt.Println("init publisher END : " + topic + " msgtype:" + msgtype)
 	return pub
 }
 
-func (p publisher) doPublish(data msgType){
+func (p publisher) doPublish(data msgType) {
 	t := data.GetData()
 	msgtypeC := C.CString(p.msgtypestr)
-	C.do_publish_c(unsafe.Pointer(p.rclPtrs.publisherPtr),msgtypeC,t)
-//	C.do_publish_c(unsafe.Pointer(p.rcl_ptrs.publisher_ptr),unsafe.Pointer(&(t.Poses[0])), C.int(unsafe.Sizeof(t.Poses[0])))
+	C.do_publish_c(unsafe.Pointer(p.rclPtrs.publisherPtr), msgtypeC, t)
+	//	C.do_publish_c(unsafe.Pointer(p.rcl_ptrs.publisher_ptr),unsafe.Pointer(&(t.Poses[0])), C.int(unsafe.Sizeof(t.Poses[0])))
 	C.free(unsafe.Pointer(msgtypeC))
 	data.Finish()
 }
 
-func (p publisher) finish(){
+func (p publisher) finish() {
 	//finish and clean rclc here
-	C.rcl_publisher_fini(p.rclPtrs.publisherPtr,nodePtr)
+	C.rcl_publisher_fini(p.rclPtrs.publisherPtr, nodePtr)
 	C.free(unsafe.Pointer(p.rclPtrs.publisherPtr))
 }
 
 /////// Subscriber ///////
-type rclcSubPtrs struct{
+type rclcSubPtrs struct {
 	subscriptionPtr C.rcl_subscription_t_ptr
-	subOptions C.rcl_subscription_options_t
-	allocator C.rcutils_allocator_t
-	serMsgPtr C.rcl_serialized_message_t_ptr
+	subOptions      C.rcl_subscription_options_t
+	allocator       C.rcutils_allocator_t
+	serMsgPtr       C.rcl_serialized_message_t_ptr
 }
 
-type subscriber struct{
-	name string
-	topic string
+type subscriber struct {
+	name       string
+	topic      string
 	msgtypestr string
-	chanType reflect.Type
-	chanValue reflect.Value
-	index int
-	rclPtrs *rclcSubPtrs
+	chanType   reflect.Type
+	chanValue  reflect.Value
+	index      int
+	rclPtrs    *rclcSubPtrs
 }
+
 var subscriberArr []subscriber
 
-func initSubscriber(messages interface{},topic string, msgtype string) *subscriber{
+func initSubscriber(messages interface{}, topic string, msgtype string) *subscriber {
 	fmt.Println("init subscriber")
 	s := new(subscriber)
 	s.chanType = reflect.TypeOf(messages)
 	s.chanValue = reflect.ValueOf(messages)
 	msgType := s.chanType.Elem()
-	fmt.Printf("%+v (%+v)\n", s.chanType, reflect.PtrTo(msgType))
-	subName := "sub_" + strings.ReplaceAll(topic,"/","")
+	subName := "sub_" + strings.ReplaceAll(topic, "/", "")
 	s.name = subName
 	s.topic = topic
 	s.msgtypestr = msgtype
-	subscriberArr = append(subscriberArr,*s)
-	s.index = len(subscriberArr)-1
+	subscriberArr = append(subscriberArr, *s)
+	s.index = len(subscriberArr) - 1
 
 	msg := reflect.New(msgType)
 	method := msg.MethodByName("TypeSupport")
-	result := method.Call(nil)	
+	result := method.Call(nil)
 
 	topicC := C.CString(s.topic)
 	msgtypeC := C.CString(s.msgtypestr)
@@ -294,21 +294,21 @@ func initSubscriber(messages interface{},topic string, msgtype string) *subscrib
 		topicC,
 		msgtypeC,
 		unsafe.Pointer(result[0].Pointer()),
-		))
+	))
 	C.free(unsafe.Pointer(topicC))
 	C.free(unsafe.Pointer(msgtypeC))
 	fmt.Println("init subscriber END")
 	return s
 }
 
-func (s subscriber)doSubscribe(ctx context.Context){
+func (s subscriber) doSubscribe(ctx context.Context) {
 	fmt.Println("subscribing")
 	msgType := s.chanType.Elem()
 	msg := reflect.New(msgType)
 	method := msg.MethodByName("TypeSupport")
-	result := method.Call(nil)	
+	result := method.Call(nil)
 	nameC := C.CString(s.name)
-	for{
+	for {
 
 		select {
 		case <-ctx.Done():
@@ -320,35 +320,34 @@ func (s subscriber)doSubscribe(ctx context.Context){
 				unsafe.Pointer(result[0].Pointer()),
 				C.int(msgType.Size()),
 				nameC,
-				C.int(s.index) )
-			time.Sleep(100*time.Millisecond)
+				C.int(s.index))
+			time.Sleep(100 * time.Millisecond)
 		}
 	}
-	
+
 }
 
-func (s subscriber) finish(){
+func (s subscriber) finish() {
 	//finish and clean rclc here
 	fmt.Println("Finish subscriber")
-	C.rcutils_uint8_array_fini(s.rclPtrs.serMsgPtr);
-	C.rcl_subscription_fini(s.rclPtrs.subscriptionPtr,nodePtr)
+	C.rcutils_uint8_array_fini(s.rclPtrs.serMsgPtr)
+	C.rcl_subscription_fini(s.rclPtrs.subscriptionPtr, nodePtr)
 	C.free(unsafe.Pointer(s.rclPtrs.subscriptionPtr))
 	fmt.Println("Finished subscriber")
 }
 
-
 //export goCallback
-func goCallback(size C.int, data unsafe.Pointer, name unsafe.Pointer, index C.int){
+func goCallback(size C.int, data unsafe.Pointer, name unsafe.Pointer, index C.int) {
 	sub := subscriberArr[index]
 	n := C.GoString((*C.char)(name))
-	if (sub.name==n){
+	if sub.name == n {
 		msgType := sub.chanType.Elem()
 		d := reflect.NewAt(msgType, data)
 		sub.chanValue.Send(reflect.Indirect(d))
-	}else{
+	} else {
 		//if name does not match, search correct sub from array
-		for _,s := range subscriberArr{
-			if s.name == n{
+		for _, s := range subscriberArr {
+			if s.name == n {
 				msgType := s.chanType.Elem()
 				d := reflect.NewAt(msgType, data)
 				s.chanValue.Send(reflect.Indirect(d))
@@ -356,8 +355,3 @@ func goCallback(size C.int, data unsafe.Pointer, name unsafe.Pointer, index C.in
 		}
 	}
 }
-
-
-
-
-
