@@ -228,7 +228,7 @@ func initPublisher(topic string, msgtype string, typeinterface msgType) *publish
 	pub := new(publisher)
 	pub.msgtypestr = msgtype
 	topicC := C.CString(topic)
-	pub.rclPtrs = (*rclcPubPtrs)(C.init_publisher(unsafe.Pointer(ctxPtr), unsafe.Pointer(nodePtr), C.CString(topic), typeinterface.TypeSupport()))
+	pub.rclPtrs = (*rclcPubPtrs)(C.init_publisher(unsafe.Pointer(ctxPtr), unsafe.Pointer(nodePtr), topicC, typeinterface.TypeSupport()))
 	C.free(unsafe.Pointer(topicC))
 	fmt.Println("init publisher END : " + topic + " msgtype:" + msgtype)
 	return pub
@@ -238,7 +238,6 @@ func (p publisher) doPublish(data msgType) {
 	t := data.GetData()
 	msgtypeC := C.CString(p.msgtypestr)
 	C.do_publish_c(unsafe.Pointer(p.rclPtrs.publisherPtr), msgtypeC, t)
-	//	C.do_publish_c(unsafe.Pointer(p.rcl_ptrs.publisher_ptr),unsafe.Pointer(&(t.Poses[0])), C.int(unsafe.Sizeof(t.Poses[0])))
 	C.free(unsafe.Pointer(msgtypeC))
 	data.Finish()
 }
