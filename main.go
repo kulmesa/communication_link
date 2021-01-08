@@ -15,6 +15,7 @@ import (
 
 	jwt "github.com/dgrijalva/jwt-go"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+	gstreamer "github.com/ssrc-tii/fog_sw/ros2_ws/src/communication_link/gstreamer"
 )
 
 const (
@@ -58,6 +59,7 @@ func main() {
 	defer shutdownRosNode()
 	startTelemetry(ctx, &wg, mqttClient)
 	startCommandHandlers(ctx, &wg, mqttClient)
+	go gstreamer.StartVideoStream()
 
 	// wait for termination and close quit to signal all
 	<-terminationSignals
