@@ -6,7 +6,7 @@ package gstreamer
 */
 import "C"
 import (
-//	"context"
+	//	"context"
 	"errors"
 	"fmt"
 	"sync"
@@ -291,11 +291,22 @@ func CheckPlugins(plugins []string) error {
 	return nil
 }
 
-func StartVideoStream() {
+//StartVideoStream starts listening videostream and forward to rtsp server
+func StartVideoStream(deviceID string) {
 
-	fmt.Println("StartVideoStream")
+	fmt.Println("StartVideoStream:", deviceID)
 
-	pipeline, err := New("udpsrc port=5600 name=mysource ! rtph264depay ! rtspclientsink name=sink protocols=tcp location=rtsps://DroneUser:DroneM1esSalasanaOkJee@localhost:8555/mystream tls-validation-flags=generic-error")
+	pipelineStr := "udpsrc port=5600 name=mysource "
+	pipelineStr += "! rtph264depay "
+	rtspclientstr := fmt.Sprintf("! rtspclientsink name=sink protocols=tcp location=rtsps://%s:%s@localhost:8555/%s tls-validation-flags=generic-error",
+		"DroneUser",
+		"DroneM1esSalasanaOkJee",
+		deviceID)
+	pipelineStr += rtspclientstr
+
+	fmt.Println(pipelineStr)
+
+	pipeline, err := New(pipelineStr)
 	appsrc := pipeline.FindElement("mysource")
 
 	appsrc.SetCap("application/x-rtp, media=(string)video, clock-rate=(int)90000, encoding-name=(string)H264")

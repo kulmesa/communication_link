@@ -6,8 +6,8 @@ import (
 	"fmt"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	uuid "github.com/google/uuid"
-	types "github.com/ssrc-tii/fog_sw/ros2_ws/src/communication_link/types"
 	ros "github.com/ssrc-tii/fog_sw/ros2_ws/src/communication_link/ros"
+	types "github.com/ssrc-tii/fog_sw/ros2_ws/src/communication_link/types"
 	"log"
 	"sync"
 )
