@@ -202,9 +202,9 @@ void gstreamer_element_pull_buffer(GstElement *element, int elementId) {
     s->element = element;
     s->elementId = elementId;
 
-    g_object_set(element, "emit-signals", TRUE, NULL);
-    g_signal_connect(element, "new-sample", G_CALLBACK(gstreamer_new_sample_handler), s);  
-    g_signal_connect(element, "eos", G_CALLBACK(gstreamer_sink_eos_handler), s); 
+//    g_object_set(element, "emit-signals", TRUE, NULL);
+//    g_signal_connect(element, "new-sample", G_CALLBACK(gstreamer_new_sample_handler), s);  
+//    g_signal_connect(element, "eos", G_CALLBACK(gstreamer_sink_eos_handler), s); 
 }
 
 

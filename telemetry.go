@@ -7,6 +7,7 @@ import (
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	uuid "github.com/google/uuid"
 	types "github.com/ssrc-tii/fog_sw/ros2_ws/src/communication_link/types"
+	ros "github.com/ssrc-tii/fog_sw/ros2_ws/src/communication_link/ros"
 	"log"
 	"sync"
 )
@@ -55,8 +56,8 @@ func sendSensorData(mqttClient mqtt.Client, data types.SensorCombined) {
 func handleGPSMessages(ctx context.Context, mqttClient mqtt.Client) {
 	messages := make(chan types.VehicleGlobalPosition)
 	log.Printf("Creating subscriber for %s", "VehicleGlobalPosition")
-	sub := initSubscriber(messages, "VehicleGlobalPosition_PubSubTopic", "px4_msgs/msg/VehicleGlobalPosition")
-	go sub.doSubscribe(ctx)
+	sub := ros.InitSubscriber(messages, "VehicleGlobalPosition_PubSubTopic", "px4_msgs/msg/VehicleGlobalPosition")
+	go sub.DoSubscribe(ctx)
 	go func() {
 		for m := range messages {
 			//			log.Printf("Lon: %f,  Lat:%f",m.Lat, m.Lon)
@@ -66,7 +67,7 @@ func handleGPSMessages(ctx context.Context, mqttClient mqtt.Client) {
 	for {
 		select {
 		case <-ctx.Done():
-			sub.finish()
+			sub.Finish()
 			return
 		}
 	}
@@ -75,8 +76,8 @@ func handleGPSMessages(ctx context.Context, mqttClient mqtt.Client) {
 func handleSensorMessages(ctx context.Context, mqttClient mqtt.Client) {
 	messages := make(chan types.SensorCombined)
 	log.Printf("Creating subscriber for %s", "SensorCombined")
-	sub := initSubscriber(messages, "SensorCombined_PubSubTopic", "px4_msgs/msg/SensorCombined")
-	go sub.doSubscribe(ctx)
+	sub := ros.InitSubscriber(messages, "SensorCombined_PubSubTopic", "px4_msgs/msg/SensorCombined")
+	go sub.DoSubscribe(ctx)
 	go func() {
 		for m := range messages {
 			sendSensorData(mqttClient, m)
@@ -86,7 +87,7 @@ func handleSensorMessages(ctx context.Context, mqttClient mqtt.Client) {
 	for {
 		select {
 		case <-ctx.Done():
-			sub.finish()
+			sub.Finish()
 			return
 		}
 	}
