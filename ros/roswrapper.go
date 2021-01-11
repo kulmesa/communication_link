@@ -1,4 +1,4 @@
-package main
+package ros
 
 import (
 	"context"
@@ -190,19 +190,20 @@ type msgType interface {
 	Finish()
 }
 
-func initRosNode(namespace string) {
+func InitRosNode(namespace string, nodename string) {
 	fmt.Println("init ros")
 	ns := strings.ReplaceAll(namespace, "/", "")
 	ns = strings.ReplaceAll(ns, "-", "")
 	ctxPtr = C.rcl_context_t_ptr(C.init_ros_ctx())
-	nodeNameC := C.CString("communication_link")
+//	nodeNameC := C.CString("communication_link")
+	nodeNameC := C.CString(nodename)
 	nsc := C.CString(ns)
 	nodePtr = C.rcl_node_t_ptr(C.init_ros_node(unsafe.Pointer(ctxPtr), nodeNameC, nsc))
 	C.free(unsafe.Pointer(nsc))
 	C.free(unsafe.Pointer(nodeNameC))
 }
 
-func shutdownRosNode() {
+func ShutdownRosNode() {
 	fmt.Println("shutdown ros")
 	C.rcl_node_fini(nodePtr)
 	C.free(unsafe.Pointer(nodePtr))
@@ -217,15 +218,15 @@ type rclcPubPtrs struct {
 	publisherPtr     C.rcl_publisher_t_ptr
 }
 
-type publisher struct {
+type Publisher struct {
 	rclPtrs      *rclcPubPtrs
 	msgtypestr   string
 	publisherPtr unsafe.Pointer
 }
 
-func initPublisher(topic string, msgtype string, typeinterface msgType) *publisher {
+func InitPublisher(topic string, msgtype string, typeinterface msgType) *Publisher {
 	fmt.Println("init publisher:" + topic + " msgtype:" + msgtype)
-	pub := new(publisher)
+	pub := new(Publisher)
 	pub.msgtypestr = msgtype
 	topicC := C.CString(topic)
 	pub.rclPtrs = (*rclcPubPtrs)(C.init_publisher(unsafe.Pointer(ctxPtr), unsafe.Pointer(nodePtr), topicC, typeinterface.TypeSupport()))
@@ -234,7 +235,7 @@ func initPublisher(topic string, msgtype string, typeinterface msgType) *publish
 	return pub
 }
 
-func (p publisher) doPublish(data msgType) {
+func (p Publisher) DoPublish(data msgType) {
 	t := data.GetData()
 	msgtypeC := C.CString(p.msgtypestr)
 	C.do_publish_c(unsafe.Pointer(p.rclPtrs.publisherPtr), msgtypeC, t)
@@ -242,7 +243,7 @@ func (p publisher) doPublish(data msgType) {
 	data.Finish()
 }
 
-func (p publisher) finish() {
+func (p Publisher) Finish() {
 	//finish and clean rclc here
 	C.rcl_publisher_fini(p.rclPtrs.publisherPtr, nodePtr)
 	C.free(unsafe.Pointer(p.rclPtrs.publisherPtr))
@@ -256,7 +257,7 @@ type rclcSubPtrs struct {
 	serMsgPtr       C.rcl_serialized_message_t_ptr
 }
 
-type subscriber struct {
+type Subscriber struct {
 	name       string
 	topic      string
 	msgtypestr string
@@ -266,11 +267,11 @@ type subscriber struct {
 	rclPtrs    *rclcSubPtrs
 }
 
-var subscriberArr []subscriber
+var subscriberArr []Subscriber
 
-func initSubscriber(messages interface{}, topic string, msgtype string) *subscriber {
+func InitSubscriber(messages interface{}, topic string, msgtype string) *Subscriber {
 	fmt.Println("init subscriber")
-	s := new(subscriber)
+	s := new(Subscriber)
 	s.chanType = reflect.TypeOf(messages)
 	s.chanValue = reflect.ValueOf(messages)
 	msgType := s.chanType.Elem()
@@ -300,7 +301,7 @@ func initSubscriber(messages interface{}, topic string, msgtype string) *subscri
 	return s
 }
 
-func (s subscriber) doSubscribe(ctx context.Context) {
+func (s Subscriber) DoSubscribe(ctx context.Context) {
 	fmt.Println("subscribing")
 	msgType := s.chanType.Elem()
 	msg := reflect.New(msgType)
@@ -326,7 +327,7 @@ func (s subscriber) doSubscribe(ctx context.Context) {
 
 }
 
-func (s subscriber) finish() {
+func (s Subscriber) Finish() {
 	//finish and clean rclc here
 	fmt.Println("Finish subscriber")
 	C.rcutils_uint8_array_fini(s.rclPtrs.serMsgPtr)

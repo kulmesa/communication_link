@@ -12,6 +12,7 @@ import (
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	types "github.com/ssrc-tii/fog_sw/ros2_ws/src/communication_link/types"
+	ros "github.com/ssrc-tii/fog_sw/ros2_ws/src/communication_link/ros"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -68,7 +69,7 @@ func JoinFleet(client mqtt.Client, payload []byte) {
 }
 
 // handleControlCommand takes a command string and forwards it to mavlinkcmd
-func handleControlCommand(command string, mqttClient mqtt.Client, pub *publisher) {
+func handleControlCommand(command string, mqttClient mqtt.Client, pub *ros.Publisher) {
 	var cmd controlCommand
 	err := json.Unmarshal([]byte(command), &cmd)
 	if err != nil {
@@ -86,22 +87,22 @@ func handleControlCommand(command string, mqttClient mqtt.Client, pub *publisher
 
 	case "takeoff":
 		log.Printf("Publishing 'takeoff' to /mavlinkcmd")
-		pub.doPublish(types.GenerateString("takeoff"))
+		pub.DoPublish(types.GenerateString("takeoff"))
 	case "land":
 		log.Printf("Publishing 'land' to /mavlinkcmd")
-		pub.doPublish(types.GenerateString("land"))
+		pub.DoPublish(types.GenerateString("land"))
 	case "start_mission":
 		log.Printf("Publishing 'start_mission' to /mavlinkcmd")
-		pub.doPublish(types.GenerateString("start_mission"))
+		pub.DoPublish(types.GenerateString("start_mission"))
 	case "pause_mission":
 		log.Printf("Publishing 'pause_mission' to /mavlinkcmd")
-		pub.doPublish(types.GenerateString("pause_mission"))
+		pub.DoPublish(types.GenerateString("pause_mission"))
 	case "resume_mission":
 		log.Printf("Publishing 'resume_mission' to /mavlinkcmd")
-		pub.doPublish(types.GenerateString("resume_mission"))
+		pub.DoPublish(types.GenerateString("resume_mission"))
 	case "return_home":
 		log.Printf("Publishing 'return_home' to /mavlinkcmd")
-		pub.doPublish(types.GenerateString("return_home"))
+		pub.DoPublish(types.GenerateString("return_home"))
 	//case "plan":
 	//	log.Printf("Publishing 'plan' to /mavlinkcmd")
 	//	msg.SetText("plan")
@@ -115,7 +116,7 @@ func handleControlCommand(command string, mqttClient mqtt.Client, pub *publisher
 }
 
 // handleMissionCommand takes a command string and forwards it to mavlinkcmd
-func handleMissionCommand(command string, pub *publisher) {
+func handleMissionCommand(command string, pub *ros.Publisher) {
 	var cmd controlCommand
 	err := json.Unmarshal([]byte(command), &cmd)
 	if err != nil {
@@ -126,7 +127,7 @@ func handleMissionCommand(command string, pub *publisher) {
 	case "new_mission":
 		log.Printf("Publishing mission to where ever")
 		//		mission := new (types.PoseStamped)
-		pub.doPublish(types.GeneratePath())
+		pub.DoPublish(types.GeneratePath())
 	default:
 		log.Printf("Unknown command: %v", command)
 	}
@@ -136,11 +137,11 @@ func handleMissionCommand(command string, pub *publisher) {
 func handleControlCommands(ctx context.Context, wg *sync.WaitGroup, mqttClient mqtt.Client, commands <-chan string) {
 	wg.Add(1)
 	defer wg.Done()
-	pub := initPublisher("mavlinkcmd", "std_msgs/msg/String", (*types.String)(nil))
+	pub := ros.InitPublisher("mavlinkcmd", "std_msgs/msg/String", (*types.String)(nil))
 	for {
 		select {
 		case <-ctx.Done():
-			pub.finish()
+			pub.Finish()
 			return
 		case command := <-commands:
 			handleControlCommand(command, mqttClient, pub)
@@ -152,11 +153,11 @@ func handleControlCommands(ctx context.Context, wg *sync.WaitGroup, mqttClient m
 func handleMissionCommands(ctx context.Context, wg *sync.WaitGroup, commands <-chan string) {
 	wg.Add(1)
 	defer wg.Done()
-	pub := initPublisher("whereever", "nav_msgs/msg/Path", (*types.Path)(nil))
+	pub := ros.InitPublisher("whereever", "nav_msgs/msg/Path", (*types.Path)(nil))
 	for {
 		select {
 		case <-ctx.Done():
-			pub.finish()
+			pub.Finish()
 			return
 		case command := <-commands:
 			handleMissionCommand(command, pub)
