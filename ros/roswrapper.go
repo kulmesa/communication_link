@@ -190,12 +190,12 @@ type msgType interface {
 	Finish()
 }
 
+//InitRosNode initializes the ROS node
 func InitRosNode(namespace string, nodename string) {
 	fmt.Println("init ros")
 	ns := strings.ReplaceAll(namespace, "/", "")
 	ns = strings.ReplaceAll(ns, "-", "")
 	ctxPtr = C.rcl_context_t_ptr(C.init_ros_ctx())
-//	nodeNameC := C.CString("communication_link")
 	nodeNameC := C.CString(nodename)
 	nsc := C.CString(ns)
 	nodePtr = C.rcl_node_t_ptr(C.init_ros_node(unsafe.Pointer(ctxPtr), nodeNameC, nsc))
@@ -203,6 +203,7 @@ func InitRosNode(namespace string, nodename string) {
 	C.free(unsafe.Pointer(nodeNameC))
 }
 
+//ShutdownRosNode shuts down the ROS node and frees resources
 func ShutdownRosNode() {
 	fmt.Println("shutdown ros")
 	C.rcl_node_fini(nodePtr)
@@ -218,12 +219,14 @@ type rclcPubPtrs struct {
 	publisherPtr     C.rcl_publisher_t_ptr
 }
 
+//Publisher datatype 
 type Publisher struct {
 	rclPtrs      *rclcPubPtrs
 	msgtypestr   string
 	publisherPtr unsafe.Pointer
 }
 
+//InitPublisher initializes ROS Publisher
 func InitPublisher(topic string, msgtype string, typeinterface msgType) *Publisher {
 	fmt.Println("init publisher:" + topic + " msgtype:" + msgtype)
 	pub := new(Publisher)
@@ -235,6 +238,7 @@ func InitPublisher(topic string, msgtype string, typeinterface msgType) *Publish
 	return pub
 }
 
+//DoPublish  does the actual publish
 func (p Publisher) DoPublish(data msgType) {
 	t := data.GetData()
 	msgtypeC := C.CString(p.msgtypestr)
@@ -243,6 +247,7 @@ func (p Publisher) DoPublish(data msgType) {
 	data.Finish()
 }
 
+//Finish ROS publisher and free resources
 func (p Publisher) Finish() {
 	//finish and clean rclc here
 	C.rcl_publisher_fini(p.rclPtrs.publisherPtr, nodePtr)
@@ -257,6 +262,7 @@ type rclcSubPtrs struct {
 	serMsgPtr       C.rcl_serialized_message_t_ptr
 }
 
+//Subscriber data structure
 type Subscriber struct {
 	name       string
 	topic      string
@@ -269,6 +275,7 @@ type Subscriber struct {
 
 var subscriberArr []Subscriber
 
+//InitSubscriber initializes the ROS subscriber
 func InitSubscriber(messages interface{}, topic string, msgtype string) *Subscriber {
 	fmt.Println("init subscriber")
 	s := new(Subscriber)
@@ -301,6 +308,7 @@ func InitSubscriber(messages interface{}, topic string, msgtype string) *Subscri
 	return s
 }
 
+//DoSubscribe does the actual subscribing and starts listening messages
 func (s Subscriber) DoSubscribe(ctx context.Context) {
 	fmt.Println("subscribing")
 	msgType := s.chanType.Elem()
@@ -327,6 +335,7 @@ func (s Subscriber) DoSubscribe(ctx context.Context) {
 
 }
 
+//Finish subscriber and frees resources
 func (s Subscriber) Finish() {
 	//finish and clean rclc here
 	fmt.Println("Finish subscriber")

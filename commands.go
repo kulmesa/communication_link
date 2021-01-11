@@ -10,8 +10,8 @@ import (
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
-	types "github.com/ssrc-tii/fog_sw/ros2_ws/src/communication_link/types"
 	ros "github.com/ssrc-tii/fog_sw/ros2_ws/src/communication_link/ros"
+	types "github.com/ssrc-tii/fog_sw/ros2_ws/src/communication_link/types"
 )
 
 type controlCommand struct {
@@ -78,6 +78,24 @@ func handleMissionCommand(command string, pub *ros.Publisher) {
 	}
 }
 
+// handleGstreamerCommand takes a command string and forwards it to gstreamercmd
+func handleGstreamerCommand(command string, pub *ros.Publisher) {
+	var cmd controlCommand
+	err := json.Unmarshal([]byte(command), &cmd)
+	if err != nil {
+		log.Printf("Could not unmarshal command: %v", err)
+		return
+	}
+
+	switch cmd.Command {
+	case "start":
+		log.Printf("Publishing 'start' to /gstreamercmd")
+		pub.DoPublish(types.GenerateString("start"))
+	default:
+		log.Printf("Unknown command: %v", command)
+	}
+}
+
 // handleControlCommands routine waits for commands and executes them. The routine quits when quit channel is closed
 func handleControlCommands(ctx context.Context, wg *sync.WaitGroup, commands <-chan string) {
 	wg.Add(1)
@@ -110,13 +128,32 @@ func handleMissionCommands(ctx context.Context, wg *sync.WaitGroup, commands <-c
 	}
 }
 
+// handleGstreamerCommands routine waits for commands and executes them. The routine quits when quit channel is closed
+func handleGstreamerCommands(ctx context.Context, wg *sync.WaitGroup, commands <-chan string) {
+	wg.Add(1)
+	defer wg.Done()
+	pub := ros.InitPublisher("gstreamercmd", "std_msgs/msg/String", (*types.String)(nil))
+
+	for {
+		select {
+		case <-ctx.Done():
+			pub.Finish()
+			return
+		case command := <-commands:
+			handleGstreamerCommand(command, pub)
+		}
+	}
+}
+
 func startCommandHandlers(ctx context.Context, wg *sync.WaitGroup, mqttClient mqtt.Client) {
 
 	controlCommands := make(chan string)
 	missionCommands := make(chan string)
+	gstreamerCommands := make(chan string)
 
 	go handleControlCommands(ctx, wg, controlCommands)
 	go handleMissionCommands(ctx, wg, missionCommands)
+	go handleGstreamerCommands(ctx, wg, gstreamerCommands)
 
 	log.Printf("Subscribing to MQTT commands")
 	commandTopic := fmt.Sprintf("/devices/%s/commands/", *deviceID)
@@ -129,6 +166,9 @@ func startCommandHandlers(ctx context.Context, wg *sync.WaitGroup, mqttClient mq
 		case "mission":
 			log.Printf("Got mission command")
 			missionCommands <- string(msg.Payload())
+		case "gstreamer":
+			log.Printf("Got gstreamer command")
+			gstreamerCommands <- string(msg.Payload())
 		default:
 			log.Printf("Unknown command subfolder: %v", subfolder)
 		}
