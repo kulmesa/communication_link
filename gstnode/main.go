@@ -34,7 +34,6 @@ func main() {
 
 	ros.InitRosNode(*deviceID, "gstreamer_node")
 	defer ros.ShutdownRosNode()
-	go gstreamer.StartVideoStream(*deviceID)
 	startGstcmdListening(ctx, &wg)
 
 	// wait for termination and close quit to signal all
@@ -54,18 +53,30 @@ func handleGstMessages(ctx context.Context) {
 	log.Printf("Creating subscriber for %s", "String")
 	sub := ros.InitSubscriber(messages, "gstreamercmd", "std_msgs/msg/String")
 	go sub.DoSubscribe(ctx)
-	go func() {
-		for m := range messages {
-			log.Printf(C.GoString((*C.char)(m.Data)))
-		}
-	}()
-	for {
-		select {
-		case <-ctx.Done():
-			sub.Finish()
-			return
+	var ch chan bool
+//	ch := make(chan bool)
+
+	for m := range messages {
+		msg := C.GoString((*C.char)(m.Data))
+		log.Printf(msg)
+		switch msg {
+		case "start":
+			ch = make(chan bool)
+			go gstreamer.StartVideoStream(*deviceID, ch)
+		case "stop":
+			log.Printf("before close ch")
+
+			select {
+			case <-ch:
+			default:
+				log.Printf("before close ch channel exists")
+				close(ch)
+			}
+			log.Printf("after close ch")
 		}
 	}
+	log.Printf("handleGstMessages END")
+	sub.Finish()
 }
 
 func startGstcmdListening(ctx context.Context, wg *sync.WaitGroup) {

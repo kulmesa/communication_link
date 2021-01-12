@@ -58,19 +58,12 @@ func handleGPSMessages(ctx context.Context, mqttClient mqtt.Client) {
 	log.Printf("Creating subscriber for %s", "VehicleGlobalPosition")
 	sub := ros.InitSubscriber(messages, "VehicleGlobalPosition_PubSubTopic", "px4_msgs/msg/VehicleGlobalPosition")
 	go sub.DoSubscribe(ctx)
-	go func() {
-		for m := range messages {
-			//			log.Printf("Lon: %f,  Lat:%f",m.Lat, m.Lon)
-			sendGPSData(mqttClient, m)
-		}
-	}()
-	for {
-		select {
-		case <-ctx.Done():
-			sub.Finish()
-			return
-		}
+	for m := range messages {
+		//			log.Printf("Lon: %f,  Lat:%f",m.Lat, m.Lon)
+		sendGPSData(mqttClient, m)
 	}
+	log.Printf("handleGPSMessages END")
+	sub.Finish()
 }
 
 func handleSensorMessages(ctx context.Context, mqttClient mqtt.Client) {
@@ -78,19 +71,12 @@ func handleSensorMessages(ctx context.Context, mqttClient mqtt.Client) {
 	log.Printf("Creating subscriber for %s", "SensorCombined")
 	sub := ros.InitSubscriber(messages, "SensorCombined_PubSubTopic", "px4_msgs/msg/SensorCombined")
 	go sub.DoSubscribe(ctx)
-	go func() {
-		for m := range messages {
-			sendSensorData(mqttClient, m)
-			//			log.Printf("Timestamp: %v,  GyroRads:%v %v",m.Timestamp, m.GyroRad[0], m.GyroRad[1])
-		}
-	}()
-	for {
-		select {
-		case <-ctx.Done():
-			sub.Finish()
-			return
-		}
+	for m := range messages {
+		sendSensorData(mqttClient, m)
+		//			log.Printf("Timestamp: %v,  GyroRads:%v %v",m.Timestamp, m.GyroRad[0], m.GyroRad[1])
 	}
+	log.Printf("handleSensorMessages END")
+	sub.Finish()
 }
 
 func startTelemetry(ctx context.Context, wg *sync.WaitGroup, mqttClient mqtt.Client) {

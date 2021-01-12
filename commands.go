@@ -146,6 +146,9 @@ func handleGstreamerCommand(command string, pub *ros.Publisher) {
 	case "start":
 		log.Printf("Publishing 'start' to /gstreamercmd")
 		pub.DoPublish(types.GenerateString("start"))
+	case "stop":
+		log.Printf("Publishing 'stop' to /gstreamercmd")
+		pub.DoPublish(types.GenerateString("stop"))
 	default:
 		log.Printf("Unknown command: %v", command)
 	}
@@ -188,7 +191,8 @@ func handleGstreamerCommands(ctx context.Context, wg *sync.WaitGroup, commands <
 	wg.Add(1)
 	defer wg.Done()
 	pub := ros.InitPublisher("gstreamercmd", "std_msgs/msg/String", (*types.String)(nil))
-
+	time.Sleep(2 * time.Second)
+	handleGstreamerCommand("{\"Command\":\"start\",\"Timestamp\":\"2020-11-24T12:00:00Z\"}", pub)
 	for {
 		select {
 		case <-ctx.Done():
