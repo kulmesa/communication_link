@@ -315,21 +315,8 @@ func StartVideoStream(deviceID string, ch chan(bool)) {
 		fmt.Println("Pipeline failed")
 		return
 	}
-
-	appsink := pipeline.FindElement("sink")
-
 	pipeline.Start()
-
-	out := appsink.Poll()
-
-	for {
-		_,ok := <- ch
-		if !ok {
-			fmt.Println("STOP videostream")
-			break
-		}
-		buffer := <-out
-		fmt.Println("push ", len(buffer))
-	}
+	<- ch
+	fmt.Println("End stream")
 	pipeline.Stop()
 }
