@@ -64,15 +64,11 @@ func handleGstMessages(ctx context.Context) {
 			ch = make(chan bool)
 			go gstreamer.StartVideoStream(*deviceID, ch)
 		case "stop":
-			log.Printf("before close ch")
-
 			select {
 			case <-ch:
 			default:
-				log.Printf("before close ch channel exists")
 				close(ch)
 			}
-			log.Printf("after close ch")
 		}
 	}
 	log.Printf("handleGstMessages END")
