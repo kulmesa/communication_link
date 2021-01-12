@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/ed25519"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -11,6 +12,7 @@ import (
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	types "github.com/ssrc-tii/fog_sw/ros2_ws/src/communication_link/types"
+	"golang.org/x/crypto/ssh"
 )
 
 type controlCommand struct {
@@ -19,8 +21,54 @@ type controlCommand struct {
 	Timestamp time.Time
 }
 
+type trustEvent struct {
+	PublicSSHKey string `json:"public_ssh_key"`
+}
+
+func InitializeTrust(client mqtt.Client) {
+	publicKey, privateKey, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		log.Print("Could not generate SSH keys")
+		return
+	}
+	_ = privateKey
+
+	sshPublicKey, _ := ssh.NewPublicKey(publicKey)
+	sshPublicKeyStr := ssh.MarshalAuthorizedKey(sshPublicKey)
+
+	trust, _ := json.Marshal(trustEvent{
+		PublicSSHKey: string(sshPublicKeyStr),
+	})
+
+	// send public key to server
+	topic := fmt.Sprintf("/devices/%s/events/trust", *deviceID)
+	tok := client.Publish(topic, qos, retain, trust)
+	if !tok.WaitTimeout(10 * time.Second) {
+		log.Printf("Could not send trust within 10s")
+		return
+	}
+	err = tok.Error()
+	if err != nil {
+		log.Printf("Could not send trust: %v", err)
+		return
+	}
+	log.Printf("Trust initialized")
+}
+func JoinFleet(client mqtt.Client, payload []byte) {
+	var info struct {
+		GitServerAddress string `json:"git_server_address"`
+		GitServerKey     string `json:"git_server_key"`
+	}
+	err := json.Unmarshal(payload, &info)
+	if err != nil {
+		log.Printf("Could not unmarshal payload: %v", err)
+		return
+	}
+	log.Printf("Git config: %+v", info)
+}
+
 // handleControlCommand takes a command string and forwards it to mavlinkcmd
-func handleControlCommand(command string, pub *publisher) {
+func handleControlCommand(command string, mqttClient mqtt.Client, pub *publisher) {
 	var cmd controlCommand
 	err := json.Unmarshal([]byte(command), &cmd)
 	if err != nil {
@@ -29,6 +77,13 @@ func handleControlCommand(command string, pub *publisher) {
 	}
 
 	switch cmd.Command {
+	case "initialize-trust":
+		log.Printf("Initializing trust with backend")
+		InitializeTrust(mqttClient)
+	case "join-fleet":
+		log.Printf("Backend requesting to join a fleet")
+		JoinFleet(mqttClient, []byte(cmd.Payload))
+
 	case "takeoff":
 		log.Printf("Publishing 'takeoff' to /mavlinkcmd")
 		pub.doPublish(types.GenerateString("takeoff"))
@@ -78,7 +133,7 @@ func handleMissionCommand(command string, pub *publisher) {
 }
 
 // handleControlCommands routine waits for commands and executes them. The routine quits when quit channel is closed
-func handleControlCommands(ctx context.Context, wg *sync.WaitGroup, commands <-chan string) {
+func handleControlCommands(ctx context.Context, wg *sync.WaitGroup, mqttClient mqtt.Client, commands <-chan string) {
 	wg.Add(1)
 	defer wg.Done()
 	pub := initPublisher("mavlinkcmd", "std_msgs/msg/String", (*types.String)(nil))
@@ -88,7 +143,7 @@ func handleControlCommands(ctx context.Context, wg *sync.WaitGroup, commands <-c
 			pub.finish()
 			return
 		case command := <-commands:
-			handleControlCommand(command, pub)
+			handleControlCommand(command, mqttClient, pub)
 		}
 	}
 }
@@ -114,7 +169,7 @@ func startCommandHandlers(ctx context.Context, wg *sync.WaitGroup, mqttClient mq
 	controlCommands := make(chan string)
 	missionCommands := make(chan string)
 
-	go handleControlCommands(ctx, wg, controlCommands)
+	go handleControlCommands(ctx, wg, mqttClient, controlCommands)
 	go handleMissionCommands(ctx, wg, missionCommands)
 
 	log.Printf("Subscribing to MQTT commands")
