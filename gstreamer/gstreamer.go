@@ -292,7 +292,7 @@ func CheckPlugins(plugins []string) error {
 }
 
 //StartVideoStream starts listening videostream and forward to rtsp server
-func StartVideoStream(deviceID string) {
+func StartVideoStream(deviceID string, ch chan(bool)) {
 
 	fmt.Println("StartVideoStream:", deviceID)
 
@@ -323,7 +323,13 @@ func StartVideoStream(deviceID string) {
 	out := appsink.Poll()
 
 	for {
+		_,ok := <- ch
+		if !ok {
+			fmt.Println("STOP videostream")
+			break
+		}
 		buffer := <-out
 		fmt.Println("push ", len(buffer))
 	}
+	pipeline.Stop()
 }

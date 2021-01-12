@@ -317,9 +317,9 @@ func (s Subscriber) DoSubscribe(ctx context.Context) {
 	result := method.Call(nil)
 	nameC := C.CString(s.name)
 	for {
-
 		select {
 		case <-ctx.Done():
+			s.chanValue.Close()
 			C.free(unsafe.Pointer(nameC))
 			return
 		default:
@@ -332,7 +332,6 @@ func (s Subscriber) DoSubscribe(ctx context.Context) {
 			time.Sleep(100 * time.Millisecond)
 		}
 	}
-
 }
 
 //Finish subscriber and frees resources
