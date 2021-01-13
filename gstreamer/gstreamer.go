@@ -320,5 +320,4 @@ func StartVideoStream(deviceID string,address string, ch chan(bool)) {
 	<- ch
 	fmt.Println("End stream")
 	pipeline.Stop()
-	fmt.Println("End stream 2")
 }
