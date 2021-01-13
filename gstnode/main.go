@@ -8,7 +8,8 @@ import (
 	"os/signal"
 	"sync"
 	"syscall"
-
+	"encoding/json"
+	"time"
 	gstreamer "github.com/ssrc-tii/fog_sw/ros2_ws/src/communication_link/gstreamer"
 	ros "github.com/ssrc-tii/fog_sw/ros2_ws/src/communication_link/ros"
 	types "github.com/ssrc-tii/fog_sw/ros2_ws/src/communication_link/types"
@@ -19,6 +20,12 @@ import "C"
 var (
 	deviceID = flag.String("device_id", "", "The provisioned device id")
 )
+
+type gstreamerCmd struct {
+	Command   string
+	Address   string
+	Timestamp time.Time
+}
 
 func main() {
 	flag.Parse()
@@ -54,15 +61,22 @@ func handleGstMessages(ctx context.Context) {
 	sub := ros.InitSubscriber(messages, "gstreamercmd", "std_msgs/msg/String")
 	go sub.DoSubscribe(ctx)
 	var ch chan bool
-//	ch := make(chan bool)
-
 	for m := range messages {
 		msg := C.GoString((*C.char)(m.Data))
 		log.Printf(msg)
-		switch msg {
+
+		var gstCmd gstreamerCmd
+		err := json.Unmarshal([]byte(msg), &gstCmd)
+		if err != nil {
+			log.Printf("Could not unmarshal gst command: %v", err)
+			continue
+		}
+
+		switch gstCmd.Command {
 		case "start":
 			ch = make(chan bool)
-			go gstreamer.StartVideoStream(*deviceID, ch)
+			address := gstCmd.Address
+			go gstreamer.StartVideoStream(*deviceID, address, ch)
 		case "stop":
 			select {
 			case <-ch:

@@ -21,6 +21,11 @@ type controlCommand struct {
 	Payload   string
 	Timestamp time.Time
 }
+type gstreamerCmd struct {
+	Command   string
+	Address   string
+	Timestamp time.Time
+}
 
 type trustEvent struct {
 	PublicSSHKey string `json:"public_ssh_key"`
@@ -135,20 +140,20 @@ func handleMissionCommand(command string, pub *ros.Publisher) {
 
 // handleGstreamerCommand takes a command string and forwards it to gstreamercmd
 func handleGstreamerCommand(command string, pub *ros.Publisher) {
-	var cmd controlCommand
+	var cmd gstreamerCmd
+
 	err := json.Unmarshal([]byte(command), &cmd)
 	if err != nil {
-		log.Printf("Could not unmarshal command: %v", err)
+		log.Printf("%v\nCould not unmarshal command: %v",command, err)
 		return
 	}
-
 	switch cmd.Command {
 	case "start":
 		log.Printf("Publishing 'start' to /gstreamercmd")
-		pub.DoPublish(types.GenerateString("start"))
+		pub.DoPublish(types.GenerateString(command))
 	case "stop":
 		log.Printf("Publishing 'stop' to /gstreamercmd")
-		pub.DoPublish(types.GenerateString("stop"))
+		pub.DoPublish(types.GenerateString(command))
 	default:
 		log.Printf("Unknown command: %v", command)
 	}
@@ -191,8 +196,6 @@ func handleGstreamerCommands(ctx context.Context, wg *sync.WaitGroup, commands <
 	wg.Add(1)
 	defer wg.Done()
 	pub := ros.InitPublisher("gstreamercmd", "std_msgs/msg/String", (*types.String)(nil))
-	time.Sleep(2 * time.Second)
-	handleGstreamerCommand("{\"Command\":\"start\",\"Timestamp\":\"2020-11-24T12:00:00Z\"}", pub)
 	for {
 		select {
 		case <-ctx.Done():

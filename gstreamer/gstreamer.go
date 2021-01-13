@@ -292,15 +292,16 @@ func CheckPlugins(plugins []string) error {
 }
 
 //StartVideoStream starts listening videostream and forward to rtsp server
-func StartVideoStream(deviceID string, ch chan(bool)) {
+func StartVideoStream(deviceID string,address string, ch chan(bool)) {
 
 	fmt.Println("StartVideoStream:", deviceID)
 
 	pipelineStr := "udpsrc port=5600 name=mysource "
 	pipelineStr += "! rtph264depay "
-	rtspclientstr := fmt.Sprintf("! rtspclientsink name=sink protocols=tcp location=rtsps://%s:%s@localhost:8555/%s tls-validation-flags=generic-error",
+	rtspclientstr := fmt.Sprintf("! rtspclientsink name=sink protocols=tcp location=rtsps://%s:%s@%s/%s tls-validation-flags=generic-error",
 		"DroneUser",
 		"DroneM1esSalasanaOkJee",
+		address,
 		deviceID)
 	pipelineStr += rtspclientstr
 
@@ -319,4 +320,5 @@ func StartVideoStream(deviceID string, ch chan(bool)) {
 	<- ch
 	fmt.Println("End stream")
 	pipeline.Stop()
+	fmt.Println("End stream 2")
 }
