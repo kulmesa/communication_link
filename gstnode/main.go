@@ -58,7 +58,7 @@ func main() {
 func handleGstMessages(ctx context.Context) {
 	messages := make(chan types.String)
 	log.Printf("Creating subscriber for %s", "String")
-	sub := ros.InitSubscriber(messages, "gstreamercmd", "std_msgs/msg/String")
+	sub := ros.InitSubscriber(messages, "videostreamcmd", "std_msgs/msg/String")
 	go sub.DoSubscribe(ctx)
 	var ch chan bool
 	for m := range messages {

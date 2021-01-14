@@ -149,10 +149,10 @@ func handleGstreamerCommand(command string, pub *ros.Publisher) {
 	}
 	switch cmd.Command {
 	case "start":
-		log.Printf("Publishing 'start' to /gstreamercmd")
+		log.Printf("Publishing 'start' to /videostreamrcmd")
 		pub.DoPublish(types.GenerateString(command))
 	case "stop":
-		log.Printf("Publishing 'stop' to /gstreamercmd")
+		log.Printf("Publishing 'stop' to /videostreamrcmd")
 		pub.DoPublish(types.GenerateString(command))
 	default:
 		log.Printf("Unknown command: %v", command)
@@ -195,7 +195,7 @@ func handleMissionCommands(ctx context.Context, wg *sync.WaitGroup, commands <-c
 func handleGstreamerCommands(ctx context.Context, wg *sync.WaitGroup, commands <-chan string) {
 	wg.Add(1)
 	defer wg.Done()
-	pub := ros.InitPublisher("gstreamercmd", "std_msgs/msg/String", (*types.String)(nil))
+	pub := ros.InitPublisher("videostreamcmd", "std_msgs/msg/String", (*types.String)(nil))
 	for {
 		select {
 		case <-ctx.Done():
@@ -228,8 +228,8 @@ func startCommandHandlers(ctx context.Context, wg *sync.WaitGroup, mqttClient mq
 		case "mission":
 			log.Printf("Got mission command")
 			missionCommands <- string(msg.Payload())
-		case "gstreamer":
-			log.Printf("Got gstreamer command")
+		case "videostream":
+			log.Printf("Got videostream command")
 			gstreamerCommands <- string(msg.Payload())
 		default:
 			log.Printf("Unknown command subfolder: %v", subfolder)
