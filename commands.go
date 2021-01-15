@@ -144,7 +144,7 @@ func handleGstreamerCommand(command string, pub *ros.Publisher) {
 
 	err := json.Unmarshal([]byte(command), &cmd)
 	if err != nil {
-		log.Printf("%v\nCould not unmarshal command: %v",command, err)
+		log.Printf("%v\nCould not unmarshal command: %v", command, err)
 		return
 	}
 	switch cmd.Command {

@@ -2,17 +2,16 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
+	gstreamer "github.com/ssrc-tii/fog_sw/ros2_ws/src/communication_link/gstreamer"
+	ros "github.com/ssrc-tii/fog_sw/ros2_ws/src/communication_link/ros"
+	types "github.com/ssrc-tii/fog_sw/ros2_ws/src/communication_link/types"
 	"log"
 	"os"
 	"os/signal"
 	"sync"
 	"syscall"
-	"encoding/json"
-	"time"
-	gstreamer "github.com/ssrc-tii/fog_sw/ros2_ws/src/communication_link/gstreamer"
-	ros "github.com/ssrc-tii/fog_sw/ros2_ws/src/communication_link/ros"
-	types "github.com/ssrc-tii/fog_sw/ros2_ws/src/communication_link/types"
 )
 
 import "C"
@@ -22,9 +21,8 @@ var (
 )
 
 type gstreamerCmd struct {
-	Command   string
-	Address   string
-	Timestamp time.Time
+	Command string
+	Address string
 }
 
 func main() {
@@ -75,8 +73,7 @@ func handleGstMessages(ctx context.Context) {
 		switch gstCmd.Command {
 		case "start":
 			ch = make(chan bool)
-			address := gstCmd.Address
-			go gstreamer.StartVideoStream(*deviceID, address, ch)
+			go gstreamer.StartVideoStream(*deviceID, gstCmd.Address, ch)
 		case "stop":
 			select {
 			case <-ch:

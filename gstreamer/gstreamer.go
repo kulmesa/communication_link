@@ -298,11 +298,8 @@ func StartVideoStream(deviceID string,address string, ch chan(bool)) {
 
 	pipelineStr := "udpsrc port=5600 name=mysource "
 	pipelineStr += "! rtph264depay "
-	rtspclientstr := fmt.Sprintf("! rtspclientsink name=sink protocols=tcp location=rtsps://%s:%s@%s/%s tls-validation-flags=generic-error",
-		"DroneUser",
-		"DroneM1esSalasanaOkJee",
-		address,
-		deviceID)
+	rtspclientstr := fmt.Sprintf("! rtspclientsink name=sink protocols=tcp location=%s tls-validation-flags=generic-error",
+		address)
 	pipelineStr += rtspclientstr
 
 	fmt.Println(pipelineStr)
