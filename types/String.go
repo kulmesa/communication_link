@@ -9,8 +9,7 @@ import "fmt"
 #include "std_msgs/msg/string.h"
 #include "rosidl_runtime_c/string.h"
 static inline const rosidl_message_type_support_t * ts_string(){
-//    const rosidl_message_type_support_t * ts =rosidl_typesupport_c__get_message_type_support_handle__std_msgs__msg__String();
-       const rosidl_message_type_support_t * ts = ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, String);
+	const rosidl_message_type_support_t * ts =rosidl_typesupport_c__get_message_type_support_handle__std_msgs__msg__String();
     return ts;
 }
 */
