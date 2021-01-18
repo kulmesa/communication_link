@@ -69,7 +69,6 @@ func handleGstMessages(ctx context.Context) {
 			log.Printf("Could not unmarshal gst command: %v", err)
 			continue
 		}
-
 		switch gstCmd.Command {
 		case "start":
 			ch = make(chan bool)

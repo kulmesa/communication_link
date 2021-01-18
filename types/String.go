@@ -35,7 +35,7 @@ func (t *String) GetData() unsafe.Pointer {
 
 //Finish resource release
 func (t *String) Finish() {
-	//C.free(unsafe.Pointer(t.Data))
+	C.free(unsafe.Pointer(t.Data))
 }
 
 //GenerateString generate String datatype fro string
