@@ -8,19 +8,17 @@ The `rsa_private.pem` will stay on the device side and the public part `rsa_cert
 
 ## Building
 
-The node uses private library from github.com/ssrc-tii/rclgo so to allow go build fetch dependencies we need to allow this. When using ssh keys with github the easiest way is to config git to use git@github.com instead of https
-```
-git config --global url."git@github.com:".insteadOf "https://github.com/"
-```
-
-On top of this we need to disable the version information fetch by marking the repository as private
-```
-export GOPRIVATE=github.com/ssrc-tii
-```
-
-Now we can build the application
+The application can be built as follows
 ```
 source ../../install/setup.bash
+go build
+```
+
+In addition to communication link, the gstreamer node can be built as well from this repo.
+Gstreamer node listens the video stream and streams it to rtsp server in cloud.
+It can be built as follows:
+```
+cd gstnode
 go build
 ```
 
@@ -28,4 +26,7 @@ go build
 
 ```
 ./communication_link -device_id "<my-device-id>"
+gstnode/gstnode -device_id "<my-device-id>"
 ```
+
+

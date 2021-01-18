@@ -1,12 +1,17 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"log"
 	"os"
 	"os/signal"
 	"sync"
 	"syscall"
+
+	"github.com/ssrc-tii/fog_sw/ros2_ws/src/communication_link/missionengine"
+	ros "github.com/ssrc-tii/fog_sw/ros2_ws/src/communication_link/ros"
+	//	gstreamer "github.com/ssrc-tii/fog_sw/ros2_ws/src/communication_link/gstreamer"
 )
 
 const (
@@ -38,7 +43,7 @@ func main() {
 	signal.Notify(terminationSignals, syscall.SIGINT, syscall.SIGTERM)
 
 	// quitFunc will be called when process is terminated
-	// ctx, quitFunc := context.WithCancel(context.Background())
+	ctx, quitFunc := context.WithCancel(context.Background())
 
 	// wait group will make sure all goroutines have time to clean up
 	var wg sync.WaitGroup
@@ -46,16 +51,18 @@ func main() {
 	// mqttClient := newMQTTClient()
 	// defer mqttClient.Disconnect(1000)
 
-	initRosNode(*deviceID)
-	defer shutdownRosNode()
+	ros.InitRosNode(*deviceID, "communication_link")
+	defer ros.ShutdownRosNode()
 	// startTelemetry(ctx, &wg, mqttClient)
 	// startCommandHandlers(ctx, &wg, mqttClient)
+
+	missionengine.Run(ctx)
 
 	// wait for termination and close quit to signal all
 	<-terminationSignals
 	// cancel the main context
 	log.Printf("Shuttding down..")
-	// quitFunc()
+	quitFunc()
 
 	// wait until goroutines have done their cleanup
 	log.Printf("Waiting for routines to finish..")
