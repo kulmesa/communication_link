@@ -4,14 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"flag"
-	gstreamer "github.com/ssrc-tii/fog_sw/ros2_ws/src/communication_link/gstreamer"
-	ros "github.com/ssrc-tii/fog_sw/ros2_ws/src/communication_link/ros"
-	types "github.com/ssrc-tii/fog_sw/ros2_ws/src/communication_link/types"
 	"log"
 	"os"
 	"os/signal"
 	"sync"
 	"syscall"
+
+	gstreamer "github.com/ssrc-tii/fog_sw/ros2_ws/src/communication_link/gstreamer"
+	ros "github.com/ssrc-tii/fog_sw/ros2_ws/src/communication_link/ros"
+	types "github.com/ssrc-tii/fog_sw/ros2_ws/src/communication_link/types"
 )
 
 import "C"

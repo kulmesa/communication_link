@@ -3,6 +3,7 @@ package ros
 import (
 	"context"
 	"fmt"
+
 	//	types "github.com/ssrc-tii/fog_sw/ros2_ws/src/communication_link/types"
 	"reflect"
 	"strings"
@@ -219,7 +220,7 @@ type rclcPubPtrs struct {
 	publisherPtr     C.rcl_publisher_t_ptr
 }
 
-//Publisher datatype 
+//Publisher datatype
 type Publisher struct {
 	rclPtrs      *rclcPubPtrs
 	msgtypestr   string

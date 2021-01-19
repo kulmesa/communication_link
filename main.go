@@ -8,9 +8,12 @@ import (
 	"os/signal"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/ssrc-tii/fog_sw/ros2_ws/src/communication_link/missionengine"
+
 	ros "github.com/ssrc-tii/fog_sw/ros2_ws/src/communication_link/ros"
+	types "github.com/ssrc-tii/fog_sw/ros2_ws/src/communication_link/types"
 	//	gstreamer "github.com/ssrc-tii/fog_sw/ros2_ws/src/communication_link/gstreamer"
 )
 
@@ -57,6 +60,8 @@ func main() {
 	// startCommandHandlers(ctx, &wg, mqttClient)
 
 	missionengine.Run(ctx)
+	// go runPublisher(ctx)
+	// go runSubscriber(ctx)
 
 	// wait for termination and close quit to signal all
 	<-terminationSignals
@@ -68,6 +73,26 @@ func main() {
 	log.Printf("Waiting for routines to finish..")
 	wg.Wait()
 	log.Printf("Signing off - BYE")
+}
+
+func runPublisher(ctx context.Context) {
+	pub := ros.InitPublisher("segmentation_violation", "std_msgs/msg/String", (*types.String)(nil))
+	for i := 1; i < 20; i++ {
+		time.Sleep(100 * time.Millisecond)
+		str := types.GenerateString("hello world")
+		pub.DoPublish(str)
+	}
+}
+
+func runSubscriber(ctx context.Context) {
+	messages := make(chan types.String)
+	sub := ros.InitSubscriber(messages, "segmentation_violation", "std_msgs/msg/String")
+	go sub.DoSubscribe(ctx)
+
+	for m := range messages {
+		// str := C.GoString((*C.char)(m.Data))
+		log.Printf("Received: %v", m.Size)
+	}
 }
 
 // func newMQTTClient() mqtt.Client {

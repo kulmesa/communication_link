@@ -1,7 +1,9 @@
 package types
 
-import "unsafe"
-import "fmt"
+import (
+	"fmt"
+	"unsafe"
+)
 
 /*
 #cgo LDFLAGS: -L/opt/ros/foxy/lib -Wl,-rpath=/opt/ros/foxy/lib -lrcl -lrosidl_runtime_c -lrosidl_typesupport_cpp -lrosidl_typesupport_c -lstd_msgs__rosidl_generator_c -lstd_msgs__rosidl_typesupport_c
@@ -36,14 +38,14 @@ func (t *String) GetData() unsafe.Pointer {
 
 //Finish resource release
 func (t *String) Finish() {
-	//C.free(unsafe.Pointer(t.Data))
+	// C.free(unsafe.Pointer(t.Data))
 }
 
 //GenerateString generate String datatype fro string
 func GenerateString(data string) *String {
 	t := new(String)
 	t.Data = C.CString(data)
-	t.Size = len(data)
+	t.Size = len(data) * 2
 	t.Capacity = t.Size + 1
 	return t
 }
