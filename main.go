@@ -11,7 +11,7 @@ import (
 	"time"
 
 	// "github.com/tiiuae/communication_link/missionengine"
-	"github.com/tiiuae/communication_link/missionengine"
+
 	ros "github.com/tiiuae/communication_link/ros"
 	types "github.com/tiiuae/communication_link/types"
 )
@@ -53,14 +53,14 @@ func main() {
 	// mqttClient := newMQTTClient()
 	// defer mqttClient.Disconnect(1000)
 
-	ros.InitRosNode(*deviceID, "communication_link")
-	defer ros.ShutdownRosNode()
+	node := ros.InitRosNode(*deviceID, "communication_link")
+	defer node.ShutdownRosNode()
 	// startTelemetry(ctx, &wg, mqttClient)
 	// startCommandHandlers(ctx, &wg, mqttClient)
 
-	missionengine.Run(ctx)
-	go runPublisher(ctx)
-	go runSubscriber(ctx)
+	// missionengine.Run(ctx)
+	go runPublisher(ctx, node)
+	go runSubscriber(ctx, node)
 
 	// wait for termination and close quit to signal all
 	<-terminationSignals
@@ -74,8 +74,8 @@ func main() {
 	log.Printf("Signing off - BYE")
 }
 
-func runPublisher(ctx context.Context) {
-	pub := ros.InitPublisher("segmentation_violation", "std_msgs/msg/String", (*types.String)(nil))
+func runPublisher(ctx context.Context, node *ros.RosNode) {
+	pub := node.InitPublisher("segmentation_violation", "std_msgs/msg/String", (*types.String)(nil))
 	for i := 1; i < 20; i++ {
 		time.Sleep(100 * time.Millisecond)
 		str := types.GenerateString("hello world")
@@ -83,9 +83,9 @@ func runPublisher(ctx context.Context) {
 	}
 }
 
-func runSubscriber(ctx context.Context) {
+func runSubscriber(ctx context.Context, node *ros.RosNode) {
 	messages := make(chan types.String)
-	sub := ros.InitSubscriber(messages, "segmentation_violation", "std_msgs/msg/String")
+	sub := node.InitSubscriber(messages, "segmentation_violation", "std_msgs/msg/String")
 	go sub.DoSubscribe(ctx)
 
 	for m := range messages {

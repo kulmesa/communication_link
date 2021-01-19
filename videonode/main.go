@@ -38,9 +38,9 @@ func main() {
 	// wait group will make sure all goroutines have time to clean up
 	var wg sync.WaitGroup
 
-	ros.InitRosNode(*deviceID, "gstreamer_node")
-	defer ros.ShutdownRosNode()
-	startGstcmdListening(ctx, &wg)
+	node := ros.InitRosNode(*deviceID, "gstreamer_node")
+	defer node.ShutdownRosNode()
+	startGstcmdListening(ctx, &wg, node)
 
 	// wait for termination and close quit to signal all
 	<-terminationSignals
@@ -54,10 +54,10 @@ func main() {
 	log.Printf("Signing off - BYE")
 }
 
-func handleGstMessages(ctx context.Context) {
+func handleGstMessages(ctx context.Context, node *ros.RosNode) {
 	messages := make(chan types.String)
 	log.Printf("Creating subscriber for %s", "String")
-	sub := ros.InitSubscriber(messages, "videostreamcmd", "std_msgs/msg/String")
+	sub := node.InitSubscriber(messages, "videostreamcmd", "std_msgs/msg/String")
 	go sub.DoSubscribe(ctx)
 	var ch chan bool
 	for m := range messages {
@@ -86,10 +86,10 @@ func handleGstMessages(ctx context.Context) {
 	sub.Finish()
 }
 
-func startGstcmdListening(ctx context.Context, wg *sync.WaitGroup) {
+func startGstcmdListening(ctx context.Context, wg *sync.WaitGroup, node *ros.RosNode) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		handleGstMessages(ctx)
+		handleGstMessages(ctx, node)
 	}()
 }
