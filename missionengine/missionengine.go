@@ -7,8 +7,8 @@ import (
 	"log"
 	"time"
 
-	"github.com/ssrc-tii/fog_sw/ros2_ws/src/communication_link/ros"
-	types "github.com/ssrc-tii/fog_sw/ros2_ws/src/communication_link/types"
+	"github.com/tiiuae/communication_link/ros"
+	types "github.com/tiiuae/communication_link/types"
 )
 
 import "C"

@@ -10,10 +10,10 @@ import (
 	"syscall"
 	"time"
 
-	// "github.com/tiiuae/fog_sw/ros2_ws/src/communication_link/missionengine"
-	missionengine "github.com/tiiuae/fog_sw/ros2_ws/src/communication_link/missionengine"
-	ros "github.com/tiiuae/fog_sw/ros2_ws/src/communication_link/ros"
-	types "github.com/tiiuae/fog_sw/ros2_ws/src/communication_link/types"
+	// "github.com/tiiuae/communication_link/missionengine"
+	"github.com/tiiuae/communication_link/missionengine"
+	ros "github.com/tiiuae/communication_link/ros"
+	types "github.com/tiiuae/communication_link/types"
 )
 
 const (
@@ -78,7 +78,7 @@ func runPublisher(ctx context.Context) {
 	pub := ros.InitPublisher("segmentation_violation", "std_msgs/msg/String", (*types.String)(nil))
 	for i := 1; i < 20; i++ {
 		time.Sleep(100 * time.Millisecond)
-		str := types.GenerateString("hello world asldkfjaskddjf öklasdjf kaslödj fklasjdölfkjaskldfj öalskjdf öklsadj")
+		str := types.GenerateString("hello world")
 		pub.DoPublish(str)
 	}
 }
