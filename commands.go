@@ -130,9 +130,8 @@ func handleMissionCommand(command string, pub *ros.Publisher) {
 	}
 	switch cmd.Command {
 	case "new_mission":
-		log.Printf("Publishing mission to where ever")
-		//		mission := new (types.PoseStamped)
-		pub.DoPublish(types.GeneratePath())
+		log.Printf("Publishing mission")
+		pub.DoPublish(types.GeneratePath(1))
 	default:
 		log.Printf("Unknown command: %v", command)
 	}
@@ -179,7 +178,7 @@ func handleControlCommands(ctx context.Context, wg *sync.WaitGroup, mqttClient m
 func handleMissionCommands(ctx context.Context, wg *sync.WaitGroup, commands <-chan string) {
 	wg.Add(1)
 	defer wg.Done()
-	pub := ros.InitPublisher("whereever", "nav_msgs/msg/Path", (*types.Path)(nil))
+	pub := ros.InitPublisher("path", "nav_msgs/msg/Path", (*types.Path)(nil))
 	for {
 		select {
 		case <-ctx.Done():

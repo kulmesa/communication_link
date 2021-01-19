@@ -31,28 +31,42 @@ func (t *Path) GetData() unsafe.Pointer {
 
 //Finish resource release
 func (t *Path) Finish() {
-	C.free(unsafe.Pointer(t.Poses[0].Header.FrameID.Data))
-	C.free(unsafe.Pointer(t.Poses[1].Header.FrameID.Data))
+	for i := 0; i < 4; i++ {
+        C.free(unsafe.Pointer(t.Poses[i].Header.FrameID.Data))
+    }		
 }
 
 //GeneratePath path generation
-func GeneratePath() *Path {
-	t := new(Path)
-	t.Poses = make([]PoseStamped, 2)
+func GeneratePath(tmp int) *Path {
 
-	t.Poses[0].Header.FrameID.Data = C.CString("map")
-	t.Poses[0].Header.FrameID.Size = 3
-	t.Poses[0].Header.FrameID.Capacity = 4
-	t.Poses[0].Header.Stamp = Time{100000, 1000000}
-	t.Poses[0].Pose.Position.X = 1.0
-	t.Poses[0].Pose.Position.Y = 2.0
-	t.Poses[0].Pose.Position.Z = 3.0
-	t.Poses[1].Header.FrameID.Data = C.CString("map")
+	//lat, lon, rel-alt, yaw at wp, time at wp (not used currently)
+/*	(61.5022353,23.7748721,30.0,90,100e6),
+	(61.5027688,23.7750600,30.0,110,200e6),
+	(61.5004330,23.7752644,30.0,230,300e6),
+	(61.5004168,23.7747874,30.0,90,400e6),
+	(61.5025846,23.7736515,30.0,90,500e6),
+	(61.5027580,23.7749010,30.0,90,600e6)]
+*/
+
+	t := new(Path)
+	t.Poses = make([]PoseStamped, 4)
+
+	for i := 0; i < 4; i++ {
+		t.Poses[i].Header.FrameID.Data = C.CString("map")
+		t.Poses[i].Header.FrameID.Size = 3
+		t.Poses[i].Header.FrameID.Capacity = 4
+		t.Poses[i].Header.Stamp = Time{100000, 1000000}
+		t.Poses[i].Pose.Position.X = 47.39774149 + (float64)(tmp+i)*0.01
+		t.Poses[i].Pose.Position.Y = 8.54559525 + (float64)(tmp+i)*0.01
+		t.Poses[i].Pose.Position.Z = 500.0 + (float64)(tmp+i)
+	
+	}
+/*	t.Poses[1].Header.FrameID.Data = C.CString("map")
 	t.Poses[1].Header.FrameID.Size = 3
 	t.Poses[1].Header.FrameID.Capacity = 4
 	t.Poses[1].Header.Stamp = Time{100000, 1000000}
 	t.Poses[1].Pose.Position.X = 1.0
 	t.Poses[1].Pose.Position.Y = 2.0
-	t.Poses[1].Pose.Position.Z = 3.0
+	t.Poses[1].Pose.Position.Z = 3.0*/
 	return t
 }

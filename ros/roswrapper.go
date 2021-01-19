@@ -97,8 +97,8 @@ static inline void do_publish_c(void* publisher,char* msgtype, void* data){
 		pub_msg.header.frame_id.size = 1;
 		pub_msg.header.frame_id.capacity = 2;
 		pub_msg.poses.data = data;
-		pub_msg.poses.capacity = 1;
-		pub_msg.poses.size = 1;
+		pub_msg.poses.capacity = 4;
+		pub_msg.poses.size = 4;
 		ret = rcl_publish(pub, &pub_msg,NULL);
 		printf("published nav\n");
 
