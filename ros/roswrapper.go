@@ -3,7 +3,6 @@ package ros
 import (
 	"context"
 	"fmt"
-	//	types "github.com/ssrc-tii/fog_sw/ros2_ws/src/communication_link/types"
 	"reflect"
 	"strings"
 	"sync"
@@ -93,15 +92,14 @@ static inline void do_publish_c(void* publisher,char* msgtype, void* data){
 	rcl_ret_t ret = RCL_RET_ERROR;
 	if (strncmp(msgtype, "nav_msgs/msg/Path", strlen(msgtype))==0 ){
 		nav_msgs__msg__Path pub_msg;
-		pub_msg.header.frame_id.data = malloc(2);
-		pub_msg.header.frame_id.data = "1";
+		char d[1] = {0};
+        pub_msg.header.frame_id.data = d;
 		pub_msg.header.frame_id.size = 1;
 		pub_msg.header.frame_id.capacity = 2;
 		pub_msg.poses.data = data;
 		pub_msg.poses.capacity = 1;
 		pub_msg.poses.size = 1;
 		ret = rcl_publish(pub, &pub_msg,NULL);
-		free(pub_msg.header.frame_id.data);
 		printf("published nav\n");
 
 	}

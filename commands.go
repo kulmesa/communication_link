@@ -11,8 +11,8 @@ import (
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
-	ros "github.com/ssrc-tii/fog_sw/ros2_ws/src/communication_link/ros"
-	types "github.com/ssrc-tii/fog_sw/ros2_ws/src/communication_link/types"
+	ros "github.com/tiiuae/fog_sw/ros2_ws/src/communication_link/ros"
+	types "github.com/tiiuae/fog_sw/ros2_ws/src/communication_link/types"
 	"golang.org/x/crypto/ssh"
 )
 
