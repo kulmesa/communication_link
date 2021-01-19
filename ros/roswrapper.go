@@ -94,18 +94,14 @@ static inline void do_publish_c(void* publisher,char* msgtype, void* data){
 	rcl_ret_t ret = RCL_RET_ERROR;
 	if (strncmp(msgtype, "nav_msgs/msg/Path", strlen(msgtype))==0 ){
 		nav_msgs__msg__Path pub_msg;
-		pub_msg.header.frame_id.data = malloc(2);
-		pub_msg.header.frame_id.data = "1";
+		char d[1] = {0};
+        pub_msg.header.frame_id.data = d;
 		pub_msg.header.frame_id.size = 1;
 		pub_msg.header.frame_id.capacity = 2;
 		pub_msg.poses.data = data;
 		pub_msg.poses.capacity = 1;
 		pub_msg.poses.size = 1;
 		ret = rcl_publish(pub, &pub_msg,NULL);
-//		nav_msgs__msg__Path__fini(&pub_msg);
-//		printf("before free\n");
-//		free(pub_msg.header.frame_id.data);
-//		printf("after free\n");
 		printf("published nav\n");
 
 	}
@@ -117,7 +113,6 @@ static inline void do_publish_c(void* publisher,char* msgtype, void* data){
 		pub_msg.data.capacity = t->capacity;
 		pub_msg.data.size = t->size;
 		ret = rcl_publish(pub, &pub_msg,NULL);
-		std_msgs__msg__String__fini(&pub_msg);
 		printf("published str\n");
 	}
 	if (ret != RCL_RET_OK)
@@ -176,11 +171,20 @@ static inline void* take_msg(void* sub, void* ser_msg, void* ts, int typesize,ch
 		free (deserialised_msg);
 	}
 }
+
+static inline void* take_str_msg(void* sub, void* msg, void* ts, int typesize,char* name, int index)
+{
+	rcl_subscription_t* s = (rcl_subscription_t*)sub;
+	std_msgs__msg__String* strmsg = (std_msgs__msg__String*)msg;
+	rcl_ret_t ret = rcl_take(s, strmsg, NULL, NULL);
+	if(ret == 0){
+		printf("Got str message\n");
+		Callback(0,(void*)(strmsg), (void*)name, index);
+	}
+}
 */
 import "C"
 
-//var global_messages chan <- types.VehicleGlobalPosition
-//var global_str_messages chan <- string
 var wg sync.WaitGroup
 var ctxPtr C.rcl_context_t_ptr
 var nodePtr C.rcl_node_t_ptr
@@ -324,12 +328,21 @@ func (s Subscriber) DoSubscribe(ctx context.Context) {
 			C.free(unsafe.Pointer(nameC))
 			return
 		default:
-			C.take_msg(unsafe.Pointer(s.rclPtrs.subscriptionPtr),
-				unsafe.Pointer(s.rclPtrs.serMsgPtr),
-				unsafe.Pointer(result[0].Pointer()),
-				C.int(msgType.Size()),
-				nameC,
-				C.int(s.index))
+			if s.msgtypestr == "std_msgs/msg/String" {
+				C.take_str_msg(unsafe.Pointer(s.rclPtrs.subscriptionPtr),
+					unsafe.Pointer(s.rclPtrs.serMsgPtr),
+					unsafe.Pointer(result[0].Pointer()),
+					C.int(msgType.Size()),
+					nameC,
+					C.int(s.index))
+			} else {
+				C.take_msg(unsafe.Pointer(s.rclPtrs.subscriptionPtr),
+					unsafe.Pointer(s.rclPtrs.serMsgPtr),
+					unsafe.Pointer(result[0].Pointer()),
+					C.int(msgType.Size()),
+					nameC,
+					C.int(s.index))
+			}
 			time.Sleep(100 * time.Millisecond)
 		}
 	}

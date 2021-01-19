@@ -10,6 +10,10 @@ import (
 	"sync"
 	"syscall"
 
+	gstreamer "github.com/tiiuae/fog_sw/ros2_ws/src/communication_link/gstreamer"
+	ros "github.com/tiiuae/fog_sw/ros2_ws/src/communication_link/ros"
+	types "github.com/tiiuae/fog_sw/ros2_ws/src/communication_link/types"
+
 	gstreamer "github.com/ssrc-tii/fog_sw/ros2_ws/src/communication_link/gstreamer"
 	ros "github.com/ssrc-tii/fog_sw/ros2_ws/src/communication_link/ros"
 	types "github.com/ssrc-tii/fog_sw/ros2_ws/src/communication_link/types"
@@ -70,7 +74,6 @@ func handleGstMessages(ctx context.Context) {
 			log.Printf("Could not unmarshal gst command: %v", err)
 			continue
 		}
-
 		switch gstCmd.Command {
 		case "start":
 			ch = make(chan bool)

@@ -10,11 +10,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/ssrc-tii/fog_sw/ros2_ws/src/communication_link/missionengine"
-
-	ros "github.com/ssrc-tii/fog_sw/ros2_ws/src/communication_link/ros"
-	types "github.com/ssrc-tii/fog_sw/ros2_ws/src/communication_link/types"
-	//	gstreamer "github.com/ssrc-tii/fog_sw/ros2_ws/src/communication_link/gstreamer"
+	// "github.com/tiiuae/fog_sw/ros2_ws/src/communication_link/missionengine"
+	missionengine "github.com/tiiuae/fog_sw/ros2_ws/src/communication_link/missionengine"
+	ros "github.com/tiiuae/fog_sw/ros2_ws/src/communication_link/ros"
+	types "github.com/tiiuae/fog_sw/ros2_ws/src/communication_link/types"
 )
 
 const (
@@ -60,8 +59,8 @@ func main() {
 	// startCommandHandlers(ctx, &wg, mqttClient)
 
 	missionengine.Run(ctx)
-	// go runPublisher(ctx)
-	// go runSubscriber(ctx)
+	go runPublisher(ctx)
+	go runSubscriber(ctx)
 
 	// wait for termination and close quit to signal all
 	<-terminationSignals
@@ -79,7 +78,7 @@ func runPublisher(ctx context.Context) {
 	pub := ros.InitPublisher("segmentation_violation", "std_msgs/msg/String", (*types.String)(nil))
 	for i := 1; i < 20; i++ {
 		time.Sleep(100 * time.Millisecond)
-		str := types.GenerateString("hello world")
+		str := types.GenerateString("hello world asldkfjaskddjf öklasdjf kaslödj fklasjdölfkjaskldfj öalskjdf öklsadj")
 		pub.DoPublish(str)
 	}
 }

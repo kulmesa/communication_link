@@ -11,8 +11,7 @@ import (
 #include "std_msgs/msg/string.h"
 #include "rosidl_runtime_c/string.h"
 static inline const rosidl_message_type_support_t * ts_string(){
-//    const rosidl_message_type_support_t * ts =rosidl_typesupport_c__get_message_type_support_handle__std_msgs__msg__String();
-       const rosidl_message_type_support_t * ts = ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, String);
+	const rosidl_message_type_support_t * ts =rosidl_typesupport_c__get_message_type_support_handle__std_msgs__msg__String();
     return ts;
 }
 */
@@ -38,14 +37,14 @@ func (t *String) GetData() unsafe.Pointer {
 
 //Finish resource release
 func (t *String) Finish() {
-	// C.free(unsafe.Pointer(t.Data))
+	C.free(unsafe.Pointer(t.Data))
 }
 
 //GenerateString generate String datatype fro string
 func GenerateString(data string) *String {
 	t := new(String)
 	t.Data = C.CString(data)
-	t.Size = len(data) * 2
+	t.Size = len(data)
 	t.Capacity = t.Size + 1
 	return t
 }
