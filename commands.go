@@ -11,8 +11,8 @@ import (
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
-	ros "github.com/tiiuae/fog_sw/ros2_ws/src/communication_link/ros"
-	types "github.com/tiiuae/fog_sw/ros2_ws/src/communication_link/types"
+	ros "github.com/tiiuae/communication_link/ros"
+	types "github.com/tiiuae/communication_link/types"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -160,10 +160,10 @@ func handleGstreamerCommand(command string, pub *ros.Publisher) {
 }
 
 // handleControlCommands routine waits for commands and executes them. The routine quits when quit channel is closed
-func handleControlCommands(ctx context.Context, wg *sync.WaitGroup, mqttClient mqtt.Client, commands <-chan string) {
+func handleControlCommands(ctx context.Context, wg *sync.WaitGroup, mqttClient mqtt.Client, node *ros.Node, commands <-chan string) {
 	wg.Add(1)
 	defer wg.Done()
-	pub := ros.InitPublisher("mavlinkcmd", "std_msgs/msg/String", (*types.String)(nil))
+	pub := node.InitPublisher("mavlinkcmd", "std_msgs/msg/String", (*types.String)(nil))
 	for {
 		select {
 		case <-ctx.Done():
@@ -176,10 +176,10 @@ func handleControlCommands(ctx context.Context, wg *sync.WaitGroup, mqttClient m
 }
 
 // handleMissionCommands routine waits for commands and executes them. The routine quits when quit channel is closed
-func handleMissionCommands(ctx context.Context, wg *sync.WaitGroup, commands <-chan string) {
+func handleMissionCommands(ctx context.Context, wg *sync.WaitGroup, node *ros.Node, commands <-chan string) {
 	wg.Add(1)
 	defer wg.Done()
-	pub := ros.InitPublisher("whereever", "nav_msgs/msg/Path", (*types.Path)(nil))
+	pub := node.InitPublisher("whereever", "nav_msgs/msg/Path", (*types.Path)(nil))
 	for {
 		select {
 		case <-ctx.Done():
@@ -192,10 +192,10 @@ func handleMissionCommands(ctx context.Context, wg *sync.WaitGroup, commands <-c
 }
 
 // handleGstreamerCommands routine waits for commands and executes them. The routine quits when quit channel is closed
-func handleGstreamerCommands(ctx context.Context, wg *sync.WaitGroup, commands <-chan string) {
+func handleGstreamerCommands(ctx context.Context, wg *sync.WaitGroup, node *ros.Node, commands <-chan string) {
 	wg.Add(1)
 	defer wg.Done()
-	pub := ros.InitPublisher("videostreamcmd", "std_msgs/msg/String", (*types.String)(nil))
+	pub := node.InitPublisher("videostreamcmd", "std_msgs/msg/String", (*types.String)(nil))
 	for {
 		select {
 		case <-ctx.Done():
@@ -207,15 +207,15 @@ func handleGstreamerCommands(ctx context.Context, wg *sync.WaitGroup, commands <
 	}
 }
 
-func startCommandHandlers(ctx context.Context, wg *sync.WaitGroup, mqttClient mqtt.Client) {
+func startCommandHandlers(ctx context.Context, wg *sync.WaitGroup, mqttClient mqtt.Client, node *ros.Node) {
 
 	controlCommands := make(chan string)
 	missionCommands := make(chan string)
 	gstreamerCommands := make(chan string)
 
-	go handleControlCommands(ctx, wg, mqttClient, controlCommands)
-	go handleMissionCommands(ctx, wg, missionCommands)
-	go handleGstreamerCommands(ctx, wg, gstreamerCommands)
+	go handleControlCommands(ctx, wg, mqttClient, node, controlCommands)
+	go handleMissionCommands(ctx, wg, node, missionCommands)
+	go handleGstreamerCommands(ctx, wg, node, gstreamerCommands)
 
 	log.Printf("Subscribing to MQTT commands")
 	commandTopic := fmt.Sprintf("/devices/%s/commands/", *deviceID)

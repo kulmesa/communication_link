@@ -4,12 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	mqtt "github.com/eclipse/paho.mqtt.golang"
-	uuid "github.com/google/uuid"
-	ros "github.com/tiiuae/fog_sw/ros2_ws/src/communication_link/ros"
-	types "github.com/tiiuae/fog_sw/ros2_ws/src/communication_link/types"
 	"log"
 	"sync"
+
+	mqtt "github.com/eclipse/paho.mqtt.golang"
+	uuid "github.com/google/uuid"
+	ros "github.com/tiiuae/communication_link/ros"
+	types "github.com/tiiuae/communication_link/types"
 )
 
 const (
@@ -53,10 +54,10 @@ func sendSensorData(mqttClient mqtt.Client, data types.SensorCombined) {
 	mqttClient.Publish(topic, qos, retain, string(b))
 }
 
-func handleGPSMessages(ctx context.Context, mqttClient mqtt.Client) {
+func handleGPSMessages(ctx context.Context, mqttClient mqtt.Client, node *ros.Node) {
 	messages := make(chan types.VehicleGlobalPosition)
 	log.Printf("Creating subscriber for %s", "VehicleGlobalPosition")
-	sub := ros.InitSubscriber(messages, "VehicleGlobalPosition_PubSubTopic", "px4_msgs/msg/VehicleGlobalPosition")
+	sub := node.InitSubscriber(messages, "VehicleGlobalPosition_PubSubTopic", "px4_msgs/msg/VehicleGlobalPosition")
 	go sub.DoSubscribe(ctx)
 	for m := range messages {
 		//			log.Printf("Lon: %f,  Lat:%f",m.Lat, m.Lon)
@@ -66,10 +67,10 @@ func handleGPSMessages(ctx context.Context, mqttClient mqtt.Client) {
 	sub.Finish()
 }
 
-func handleSensorMessages(ctx context.Context, mqttClient mqtt.Client) {
+func handleSensorMessages(ctx context.Context, mqttClient mqtt.Client, node *ros.Node) {
 	messages := make(chan types.SensorCombined)
 	log.Printf("Creating subscriber for %s", "SensorCombined")
-	sub := ros.InitSubscriber(messages, "SensorCombined_PubSubTopic", "px4_msgs/msg/SensorCombined")
+	sub := node.InitSubscriber(messages, "SensorCombined_PubSubTopic", "px4_msgs/msg/SensorCombined")
 	go sub.DoSubscribe(ctx)
 	for m := range messages {
 		sendSensorData(mqttClient, m)
@@ -79,14 +80,14 @@ func handleSensorMessages(ctx context.Context, mqttClient mqtt.Client) {
 	sub.Finish()
 }
 
-func startTelemetry(ctx context.Context, wg *sync.WaitGroup, mqttClient mqtt.Client) {
+func startTelemetry(ctx context.Context, wg *sync.WaitGroup, mqttClient mqtt.Client, node *ros.Node) {
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		handleGPSMessages(ctx, mqttClient)
+		handleGPSMessages(ctx, mqttClient, node)
 	}()
 	go func() {
 		defer wg.Done()
-		handleSensorMessages(ctx, mqttClient)
+		handleSensorMessages(ctx, mqttClient, node)
 	}()
 }

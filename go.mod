@@ -1,4 +1,4 @@
-module github.com/tiiuae/fog_sw/ros2_ws/src/communication_link
+module github.com/tiiuae/communication_link
 
 go 1.14
 
