@@ -59,8 +59,8 @@ func main() {
 	// startCommandHandlers(ctx, &wg, mqttClient)
 
 	// missionengine.Run(ctx)
-	go runPublisher(ctx, node)
 	go runSubscriber(ctx, node)
+	go runPublisher(ctx, node)
 
 	// wait for termination and close quit to signal all
 	<-terminationSignals
@@ -76,7 +76,7 @@ func main() {
 
 func runPublisher(ctx context.Context, node *ros.RosNode) {
 	pub := node.InitPublisher("segmentation_violation", "std_msgs/msg/String", (*types.String)(nil))
-	for i := 1; i < 20; i++ {
+	for i := 0; i < 5; i++ {
 		time.Sleep(100 * time.Millisecond)
 		str := types.GenerateString("hello world")
 		pub.DoPublish(str)
