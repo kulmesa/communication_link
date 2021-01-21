@@ -1,0 +1,21 @@
+# default videofeed source
+default: front
+
+cameras:
+
+  - id: front
+    source: udpsrc port=5600
+    #source: /dev/video0
+    #parameters:
+
+  - id: rear
+    source: /dev/video1
+    #parameters:
+
+  - id: down
+    source: /dev/video2
+    #parameters:
+
+
+
+

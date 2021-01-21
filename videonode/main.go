@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"flag"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -13,21 +14,27 @@ import (
 	gstreamer "github.com/tiiuae/communication_link/gstreamer"
 	ros "github.com/tiiuae/communication_link/ros"
 	types "github.com/tiiuae/communication_link/types"
+	conf "github.com/tiiuae/communication_link/videonode/config"
 )
 
 import "C"
 
 var (
-	deviceID = flag.String("device_id", "", "The provisioned device id")
+	deviceID                = flag.String("device_id", "", "The provisioned device id")
+	configPath              = flag.String("config", "./config.yml", "The configuration of video feed")
+	config     *conf.Config = nil
 )
 
 type gstreamerCmd struct {
 	Command string
 	Address string
+	Source  string
 }
 
 func main() {
 	flag.Parse()
+	config = conf.NewConfig(*configPath)
+
 	// attach sigint & sigterm listeners
 	terminationSignals := make(chan os.Signal, 1)
 	signal.Notify(terminationSignals, syscall.SIGINT, syscall.SIGTERM)
@@ -38,7 +45,7 @@ func main() {
 	// wait group will make sure all goroutines have time to clean up
 	var wg sync.WaitGroup
 
-	node := ros.InitRosNode(*deviceID, "gstreamer_node")
+	node := ros.InitRosNode(*deviceID, "videonode")
 	defer node.ShutdownRosNode()
 	startGstcmdListening(ctx, node, &wg)
 
@@ -73,7 +80,7 @@ func handleGstMessages(ctx context.Context, node *ros.Node) {
 		switch gstCmd.Command {
 		case "start":
 			ch = make(chan bool)
-			go gstreamer.StartVideoStream(*deviceID, gstCmd.Address, ch)
+			go StartVideoStream(*deviceID, gstCmd.Address, gstCmd.Source, ch)
 		case "stop":
 			select {
 			case <-ch:
@@ -92,4 +99,34 @@ func startGstcmdListening(ctx context.Context, node *ros.Node, wg *sync.WaitGrou
 		defer wg.Done()
 		handleGstMessages(ctx, node)
 	}()
+}
+
+//StartVideoStream starts listening videostream and forward to rtsp server
+func StartVideoStream(deviceID string, address string, source string, ch chan (bool)) {
+
+	log.Println("StartVideoStream:", deviceID)
+
+	//	pipelineStr := "udpsrc port=5600"
+	pipelineStr := config.GetSource(source)
+	pipelineStr += " name=mysource "
+	pipelineStr += "! rtph264depay "
+	rtspclientstr := fmt.Sprintf("! rtspclientsink name=sink protocols=tcp location=%s tls-validation-flags=generic-error",
+		address)
+	pipelineStr += rtspclientstr
+
+	log.Println(pipelineStr)
+
+	pipeline, err := gstreamer.New(pipelineStr)
+	appsrc := pipeline.FindElement("mysource")
+
+	appsrc.SetCap("application/x-rtp, media=(string)video, clock-rate=(int)90000, encoding-name=(string)H264")
+
+	if err != nil {
+		log.Println("Pipeline failed")
+		return
+	}
+	pipeline.Start()
+	<-ch
+	log.Println("End stream")
+	pipeline.Stop()
 }
