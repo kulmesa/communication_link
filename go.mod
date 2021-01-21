@@ -3,7 +3,7 @@ module github.com/tiiuae/communication_link
 go 1.14
 
 require (
-	github.com/dgrijalva/jwt-go v3.2.0+incompatible // indirect
+	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/eclipse/paho.mqtt.golang v1.2.0
 	github.com/go-git/go-git/v5 v5.2.0
 	github.com/google/uuid v1.1.2

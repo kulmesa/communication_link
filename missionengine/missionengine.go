@@ -3,6 +3,7 @@ package missionengine
 import (
 	// "C"
 	"context"
+	"crypto"
 	"log"
 	"sync"
 	"time"
@@ -41,16 +42,22 @@ func New(ctx context.Context, wg *sync.WaitGroup, node *ros.Node, droneName stri
 	return &MissionEngine{ctx, wg, node, droneName}
 }
 
-func (me *MissionEngine) Start(gitServerAddress string, gitServerKey string) {
+func (me *MissionEngine) Start(gitServerAddress string, gitServerKey string, gitSigner crypto.Signer) {
 	ctx := me.ctx
 	wg := me.wg
 	node := me.node
 	droneName := me.droneName
 
 	go func() {
+		defer func() {
+			r := recover()
+			if r != nil {
+				log.Printf("Recover: %v", r)
+			}
+		}()
 		log.Printf("Starting mission engine of drone: '%s'", droneName)
 		log.Printf("Running git clone...")
-		gt := gittransport.New()
+		gt := gittransport.New(gitServerAddress, gitServerKey, gitSigner)
 		drones := gt.Config.GetFleetNames()
 		log.Printf("Fleet discovered: %v", drones)
 
@@ -67,7 +74,6 @@ func (me *MissionEngine) Start(gitServerAddress string, gitServerKey string) {
 		go runSubscriber(ctx, wg, messages, node, droneName)
 		// go runPublisher(ctx, wg, node)
 	}()
-
 }
 
 func runMessageLoop(ctx context.Context, wg *sync.WaitGroup, we *worldengine.WorldEngine, node *ros.Node, ch <-chan msg.Message) {

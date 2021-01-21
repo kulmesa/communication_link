@@ -2,13 +2,19 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"flag"
+	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 	"os/signal"
 	"sync"
 	"syscall"
+	"time"
 
+	jwt "github.com/dgrijalva/jwt-go"
+	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/tiiuae/communication_link/missionengine"
 	ros "github.com/tiiuae/communication_link/ros"
 )
@@ -22,9 +28,9 @@ const (
 )
 
 var (
-	deviceID = flag.String("device_id", "", "The provisioned device id")
-	// mqttBrokerAddress = flag.String("mqtt_broker", "", "MQTT broker protocol, address and port")
-	// privateKeyPath    = flag.String("private_key", "/enclave/rsa_private.pem", "The private key for the MQTT authentication")
+	deviceID          = flag.String("device_id", "", "The provisioned device id")
+	mqttBrokerAddress = flag.String("mqtt_broker", "", "MQTT broker protocol, address and port")
+	privateKeyPath    = flag.String("private_key", "/enclave/rsa_private.pem", "The private key for the MQTT authentication")
 )
 
 // MQTT parameters
@@ -47,17 +53,17 @@ func main() {
 	// wait group will make sure all goroutines have time to clean up
 	var wg sync.WaitGroup
 
-	// mqttClient := newMQTTClient()
-	// defer mqttClient.Disconnect(1000)
+	mqttClient := newMQTTClient()
+	defer mqttClient.Disconnect(1000)
 
 	localNode := ros.InitRosNode(*deviceID, "communication_link")
 	defer localNode.ShutdownRosNode()
 	fleetNode := ros.InitRosNode("fleet", "communication_link")
 	defer fleetNode.ShutdownRosNode()
 	me := missionengine.New(ctx, &wg, fleetNode, *deviceID)
-	_ = me
-	// startTelemetry(ctx, &wg, mqttClient)
-	// startCommandHandlers(ctx, &wg, mqttClient, localNode, me)
+
+	startTelemetry(ctx, &wg, mqttClient, localNode)
+	startCommandHandlers(ctx, &wg, mqttClient, localNode, me)
 
 	// wait for termination and close quit to signal all
 	<-terminationSignals
@@ -71,97 +77,77 @@ func main() {
 	log.Printf("Signing off - BYE")
 }
 
-// func runPublisher(ctx context.Context, node *ros.RosNode) {
-// 	pub := node.InitPublisher("segmentation_violation", "std_msgs/msg/String", (*types.String)(nil))
-// 	for i := 0; i < 5; i++ {
-// 		time.Sleep(100 * time.Millisecond)
-// 		str := types.GenerateString("hello world")
-// 		pub.DoPublish(str)
-// 	}
-// }
+func newMQTTClient() mqtt.Client {
+	serverAddress := *mqttBrokerAddress
+	if serverAddress == "" {
+		serverAddress = defaultServer
+	}
+	log.Printf("address: %v", serverAddress)
 
-// func runSubscriber(ctx context.Context, node *ros.RosNode) {
-// 	messages := make(chan types.String)
-// 	sub := node.InitSubscriber(messages, "segmentation_violation", "std_msgs/msg/String")
-// 	go sub.DoSubscribe(ctx)
+	// generate MQTT client
+	clientID := fmt.Sprintf(
+		"projects/%s/locations/%s/registries/%s/devices/%s",
+		projectID, region, registryID, *deviceID)
 
-// 	for m := range messages {
-// 		// str := C.GoString((*C.char)(m.Data))
-// 		log.Printf("Received: %v", m.Size)
-// 	}
-// }
+	log.Println("Client ID:", clientID)
 
-// func newMQTTClient() mqtt.Client {
-// 	serverAddress := *mqttBrokerAddress
-// 	if serverAddress == "" {
-// 		serverAddress = defaultServer
-// 	}
-// 	log.Printf("address: %v", serverAddress)
+	// load private key
+	keyData, err := ioutil.ReadFile(*privateKeyPath)
+	if err != nil {
+		panic(err)
+	}
 
-// 	// generate MQTT client
-// 	clientID := fmt.Sprintf(
-// 		"projects/%s/locations/%s/registries/%s/devices/%s",
-// 		projectID, region, registryID, *deviceID)
+	var key interface{}
+	switch algorithm {
+	case "RS256":
+		key, err = jwt.ParseRSAPrivateKeyFromPEM(keyData)
+	case "ES256":
+		key, err = jwt.ParseECPrivateKeyFromPEM(keyData)
+	default:
+		log.Fatalf("Unknown algorithm: %s", algorithm)
+	}
+	if err != nil {
+		panic(err)
+	}
 
-// 	log.Println("Client ID:", clientID)
+	// generate JWT as the MQTT password
+	t := time.Now()
+	token := jwt.NewWithClaims(jwt.GetSigningMethod(algorithm), &jwt.StandardClaims{
+		IssuedAt:  t.Unix(),
+		ExpiresAt: t.Add(time.Minute * 120).Unix(),
+		Audience:  projectID,
+	})
+	pass, err := token.SignedString(key)
+	if err != nil {
+		panic(err)
+	}
 
-// 	// load private key
-// 	keyData, err := ioutil.ReadFile(*privateKeyPath)
-// 	if err != nil {
-// 		panic(err)
-// 	}
+	// configure MQTT client
+	opts := mqtt.NewClientOptions().
+		AddBroker(serverAddress).
+		SetClientID(clientID).
+		SetUsername(Username).
+		SetTLSConfig(&tls.Config{MinVersion: tls.VersionTLS12}).
+		SetPassword(pass).
+		SetProtocolVersion(4) // Use MQTT 3.1.1
 
-// 	var key interface{}
-// 	switch algorithm {
-// 	case "RS256":
-// 		key, err = jwt.ParseRSAPrivateKeyFromPEM(keyData)
-// 	case "ES256":
-// 		key, err = jwt.ParseECPrivateKeyFromPEM(keyData)
-// 	default:
-// 		log.Fatalf("Unknown algorithm: %s", algorithm)
-// 	}
-// 	if err != nil {
-// 		panic(err)
-// 	}
+	client := mqtt.NewClient(opts)
 
-// 	// generate JWT as the MQTT password
-// 	t := time.Now()
-// 	token := jwt.NewWithClaims(jwt.GetSigningMethod(algorithm), &jwt.StandardClaims{
-// 		IssuedAt:  t.Unix(),
-// 		ExpiresAt: t.Add(time.Minute * 120).Unix(),
-// 		Audience:  projectID,
-// 	})
-// 	pass, err := token.SignedString(key)
-// 	if err != nil {
-// 		panic(err)
-// 	}
+	// connect to GCP Cloud IoT Core
+	log.Printf("Connecting MQTT...")
+	tok := client.Connect()
+	if err := tok.Error(); err != nil {
+		panic(err)
+	}
+	if !tok.WaitTimeout(time.Second * 5) {
+		log.Fatalf("Connection Timeout")
+	}
+	if err := tok.Error(); err != nil {
+		panic(err)
+	}
+	log.Printf("..Connected")
 
-// 	// configure MQTT client
-// 	opts := mqtt.NewClientOptions().
-// 		AddBroker(serverAddress).
-// 		SetClientID(clientID).
-// 		SetUsername(Username).
-// 		SetTLSConfig(&tls.Config{MinVersion: tls.VersionTLS12}).
-// 		SetPassword(pass).
-// 		SetProtocolVersion(4) // Use MQTT 3.1.1
+	// need mqtt reconnect each 120 minutes for long use
 
-// 	client := mqtt.NewClient(opts)
-
-// 	// connect to GCP Cloud IoT Core
-// 	log.Printf("Connecting MQTT...")
-// 	tok := client.Connect()
-// 	if err := tok.Error(); err != nil {
-// 		panic(err)
-// 	}
-// 	if !tok.WaitTimeout(time.Second * 5) {
-// 		log.Fatalf("Connection Timeout")
-// 	}
-// 	if err := tok.Error(); err != nil {
-// 		panic(err)
-// 	}
-// 	log.Printf("..Connected")
-
-// 	// need mqtt reconnect each 120 minutes for long use
-
-// 	return client
-// }
+	return client
+}

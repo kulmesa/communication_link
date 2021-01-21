@@ -1,6 +1,7 @@
 package gittransport
 
 import (
+	"crypto"
 	"errors"
 	"io"
 	"io/ioutil"
@@ -8,6 +9,8 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	sssh "golang.org/x/crypto/ssh"
 
 	//"github.com/go-git/go-billy/v5/memfs"
 	git "github.com/go-git/go-git/v5"
@@ -30,11 +33,14 @@ type Config struct {
 }
 
 type GitEngine struct {
-	Config        Config
-	r             *git.Repository
-	flagName      string
-	fileChanges   map[string]time.Time
-	filePositions map[string]int64
+	Config           Config
+	gitServerAddress string
+	gitServerKey     string
+	gitSigner        sssh.Signer
+	r                *git.Repository
+	flagName         string
+	fileChanges      map[string]time.Time
+	filePositions    map[string]int64
 }
 
 func (cfg *Config) GetFleetNames() []string {
@@ -50,13 +56,19 @@ func (me GitEngine) DataDir() string {
 	return "db/" + me.flagName
 }
 
-func New() *GitEngine {
+func New(gitServerAddress string, gitServerKey string, gitSigner crypto.Signer) *GitEngine {
 	flagName := time.Now().Format("20060102150405")
-	repository := cloneRepository(flagName)
+	signer, _ := sssh.NewSignerFromSigner(gitSigner)
+
+	repository := cloneRepository(gitServerAddress, signer, flagName)
+
 	config := parseConfig(flagName)
 
 	return &GitEngine{
 		config,
+		gitServerAddress,
+		gitServerKey,
+		signer,
 		repository,
 		flagName,
 		make(map[string]time.Time),
@@ -118,20 +130,17 @@ func (m *GitEngine) Commit(f string) {
 	}
 }
 
-func cloneRepository(flagName string) *git.Repository {
-	sshKey, err := ioutil.ReadFile("id_ed25519")
-	if err != nil {
-		log.Fatalf("sshkey file: %v", err)
-	}
+func cloneRepository(gitServerAddress string, gitSigner sssh.Signer, flagName string) *git.Repository {
+	// sshKey, err := ioutil.ReadFile("id_ed25519")
+	// if err != nil {
+	// 	log.Fatalf("sshkey file: %v", err)
+	// }
 
-	publicKey, err := ssh.NewPublicKeys("git", sshKey, "")
-	if err != nil {
-		log.Fatalf("sshkey: %v", err)
-	}
+	publicKey := &ssh.PublicKeys{User: "git", Signer: gitSigner}
 
 	r, err := git.PlainClone("db/"+flagName, false, &git.CloneOptions{
 		Auth:     publicKey,
-		URL:      "ssh://git@localhost:2222/test.git",
+		URL:      gitServerAddress,
 		Progress: os.Stdout,
 	})
 	if err != nil {
@@ -188,15 +197,17 @@ func parseConfig(flagName string) Config {
 
 func (m *GitEngine) pullFiles() bool {
 	r := m.r
-	sshKey, err := ioutil.ReadFile("id_ed25519")
-	if err != nil {
-		log.Fatalf("sshkey file: %v", err)
-	}
+	// sshKey, err := ioutil.ReadFile("id_ed25519")
+	// if err != nil {
+	// 	log.Fatalf("sshkey file: %v", err)
+	// }
 
-	publicKey, err := ssh.NewPublicKeys("git", sshKey, "")
-	if err != nil {
-		log.Fatalf("sshkey: %v", err)
-	}
+	// publicKey, err := ssh.NewPublicKeys("git", sshKey, "")
+	// if err != nil {
+	// 	log.Fatalf("sshkey: %v", err)
+	// }
+
+	publicKey := &ssh.PublicKeys{User: "git", Signer: m.gitSigner}
 
 	w, err := r.Worktree()
 	if err != nil {

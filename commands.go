@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto"
 	"crypto/ed25519"
 	"encoding/json"
 	"fmt"
@@ -32,13 +33,17 @@ type trustEvent struct {
 	PublicSSHKey string `json:"public_ssh_key"`
 }
 
+var gitPrivateKey string
+
+var gitSigner crypto.Signer
+
 func InitializeTrust(client mqtt.Client) {
 	publicKey, privateKey, err := ed25519.GenerateKey(nil)
 	if err != nil {
 		log.Print("Could not generate SSH keys")
 		return
 	}
-	_ = privateKey
+	gitSigner = privateKey
 
 	sshPublicKey, _ := ssh.NewPublicKey(publicKey)
 	sshPublicKeyStr := ssh.MarshalAuthorizedKey(sshPublicKey)
@@ -61,7 +66,14 @@ func InitializeTrust(client mqtt.Client) {
 	}
 	log.Printf("Trust initialized")
 }
+
 func JoinFleet(client mqtt.Client, payload []byte, me *missionengine.MissionEngine) {
+	defer func() {
+		r := recover()
+		if r != nil {
+			log.Printf("Recover: %v", r)
+		}
+	}()
 	var info struct {
 		GitServerAddress string `json:"git_server_address"`
 		GitServerKey     string `json:"git_server_key"`
@@ -73,7 +85,7 @@ func JoinFleet(client mqtt.Client, payload []byte, me *missionengine.MissionEngi
 	}
 	log.Printf("Git config: %+v", info)
 
-	me.Start(info.GitServerAddress, info.GitServerKey)
+	me.Start(info.GitServerAddress, info.GitServerKey, gitSigner)
 }
 
 // handleControlCommand takes a command string and forwards it to mavlinkcmd
