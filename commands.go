@@ -3,10 +3,15 @@ package main
 import (
 	"context"
 	"crypto"
-	"crypto/ed25519"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
+	"io/ioutil"
 	"log"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -16,6 +21,7 @@ import (
 	ros "github.com/tiiuae/communication_link/ros"
 	types "github.com/tiiuae/communication_link/types"
 	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/knownhosts"
 )
 
 type controlCommand struct {
@@ -37,6 +43,7 @@ var gitPrivateKey string
 
 var gitSigner crypto.Signer
 
+/*
 func InitializeTrust(client mqtt.Client) {
 	publicKey, privateKey, err := ed25519.GenerateKey(nil)
 	if err != nil {
@@ -86,6 +93,71 @@ func JoinFleet(client mqtt.Client, payload []byte, me *missionengine.MissionEngi
 	log.Printf("Git config: %+v", info)
 
 	me.Start(info.GitServerAddress, info.GitServerKey, gitSigner)
+}
+*/
+
+func InitializeTrust(client mqtt.Client) {
+	//publicKey, privateKey, err := ed25519.GenerateKey(nil)
+	privateKey, err := rsa.GenerateKey(rand.Reader, 4096)
+	publicKey := &privateKey.PublicKey
+	if err != nil {
+		log.Print("Could not generate keys")
+		return
+	}
+
+	privBytes := x509.MarshalPKCS1PrivateKey(privateKey)
+
+	privatePemData := pem.EncodeToMemory(&pem.Block{
+		Type:  "RSA PRIVATE KEY",
+		Bytes: privBytes,
+	})
+
+	os.Mkdir("ssh", 0755)
+	err = ioutil.WriteFile("ssh/id_rsa", privatePemData, 0600)
+
+	sshPublicKey, _ := ssh.NewPublicKey(publicKey)
+	sshPublicKeyStr := ssh.MarshalAuthorizedKey(sshPublicKey)
+
+	trust, _ := json.Marshal(trustEvent{
+		PublicSSHKey: strings.TrimSuffix(string(sshPublicKeyStr), "\n"),
+	})
+
+	// send public key to server
+	topic := fmt.Sprintf("/devices/%s/events/trust", *deviceID)
+	tok := client.Publish(topic, qos, retain, trust)
+	if !tok.WaitTimeout(10 * time.Second) {
+		log.Printf("Could not send trust within 10s")
+		return
+	}
+	err = tok.Error()
+	if err != nil {
+		log.Printf("Could not send trust: %v", err)
+		return
+	}
+	log.Printf("Trust initialized")
+}
+
+func JoinFleet(client mqtt.Client, payload []byte, me *missionengine.MissionEngine) {
+	var info struct {
+		GitServerAddress string `json:"git_server_address"`
+		GitServerKey     string `json:"git_server_key"`
+	}
+	err := json.Unmarshal(payload, &info)
+	if err != nil {
+		log.Printf("Could not unmarshal payload: %v", err)
+		return
+	}
+	log.Printf("Git config: %+v", info)
+
+	// TODO: knownhosts.HashHostname
+	knownCloudHost := fmt.Sprintf("%s %s\n", knownhosts.Normalize(info.GitServerAddress), info.GitServerKey)
+	err = ioutil.WriteFile("ssh/known_host_cloud", []byte(knownCloudHost), 0644)
+	if err != nil {
+		log.Printf("Could not write known_host_cloud file: %v", err)
+		return
+	}
+
+	me.Start(info.GitServerAddress, info.GitServerKey)
 }
 
 // handleControlCommand takes a command string and forwards it to mavlinkcmd
@@ -254,3 +326,20 @@ func startCommandHandlers(ctx context.Context, wg *sync.WaitGroup, mqttClient mq
 		log.Fatalf("Error on subscribe: %v", err)
 	}
 }
+
+// func flyto(pub *ros.Publisher, pubpath *ros.Publisher) {
+// 	points := []types.Point{
+// 		{X: 47.39784174359589, Y: 8.54559366785706, Z: 0.0},
+// 		{X: 47.39784174359589, Y: 8.54555366785706, Z: 0.0},
+// 		{X: 47.39774174359589, Y: 8.54559366785706, Z: 0.0},
+// 		//{X: 47.39774174359589, Y: 8.54559366785706, Z: 0.0},
+// 	}
+// 	path := types.NewPath(points)
+
+// 	pubpath.DoPublish(path)
+// 	time.Sleep(200 * time.Millisecond)
+// 	pub.DoPublish(types.GenerateString("start_mission"))
+// }
+
+// // pubpath := ros.InitPublisher("path", "nav_msgs/msg/Path", (*types.Path)(nil))
+// //

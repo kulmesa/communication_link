@@ -25,8 +25,8 @@ func (me *GitEngine) PushMessages(messages []types.Message) error {
 		}
 	}
 
-	me.CommitAll()
-	me.pushFiles()
+	// me.CommitAll()
+	// me.pushFiles()
 
 	return nil
 }

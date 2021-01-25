@@ -5,6 +5,8 @@ import (
 	"time"
 
 	"github.com/tiiuae/communication_link/missionengine/types"
+	"github.com/tiiuae/communication_link/ros"
+	rosTypes "github.com/tiiuae/communication_link/types"
 )
 
 type Drones map[string]*droneState
@@ -70,18 +72,35 @@ func (s *worldState) handleTaskCreated(msg TaskCreated) []types.Message {
 	return s.assignTasks()
 }
 
-func (s *worldState) handleTasksAssigned(msg TasksAssigned) []types.Message {
-	for k, v := range msg.Tasks {
-		drone := s.Drones[k]
+func (s *worldState) handleTasksAssigned(msg TasksAssigned, pubPath *ros.Publisher, pubMavlink *ros.Publisher) []types.Message {
+	for droneName, tasks := range msg.Tasks {
+		drone := s.Drones[droneName]
 		drone.Tasks = make([]*taskState, 0)
-		for _, t := range v {
+		for _, t := range tasks {
 			drone.Tasks = append(drone.Tasks, &taskState{ID: t.ID})
 		}
 	}
 
-	// TODO: Send PX4 path messages
+	// Send PX4 path messages
+	sendFlyToMessages(msg.Tasks[s.MyName], pubPath, pubMavlink)
 
 	return []types.Message{}
+}
+
+func sendFlyToMessages(tasks []*TaskAssignment, pubPath *ros.Publisher, pubMavlink *ros.Publisher) {
+	if len(tasks) == 0 {
+		return
+	}
+	points := make([]rosTypes.Point, 0)
+	for _, t := range tasks {
+		points = append(points, rosTypes.Point{t.X, t.Y, t.Z})
+	}
+
+	path := rosTypes.NewPath(points)
+	pubPath.DoPublish(path)
+
+	time.Sleep(200 * time.Millisecond)
+	pubMavlink.DoPublish(rosTypes.GenerateString("start_mission"))
 }
 
 func (s *worldState) handleTaskCompleted(msg TaskCompleted) []types.Message {

@@ -31,8 +31,9 @@ func (t *Path) GetData() unsafe.Pointer {
 
 //Finish resource release
 func (t *Path) Finish() {
-	C.free(unsafe.Pointer(t.Poses[0].Header.FrameID.Data))
-	C.free(unsafe.Pointer(t.Poses[1].Header.FrameID.Data))
+	for _, pose := range t.Poses {
+		C.free(unsafe.Pointer(pose.Header.FrameID.Data))
+	}
 }
 
 //GeneratePath path generation
@@ -55,4 +56,19 @@ func GeneratePath() *Path {
 	t.Poses[1].Pose.Position.Y = 2.0
 	t.Poses[1].Pose.Position.Z = 3.0
 	return t
+}
+
+// NewPath returns a valid path with given poses
+func NewPath(waypoints []Point) *Path {
+	p := Path{
+		Poses: make([]PoseStamped, len(waypoints)),
+	}
+	for i, wp := range waypoints {
+		p.Poses[i].Header.FrameID.Data = C.CString("map")
+		p.Poses[i].Header.FrameID.Size = 3
+		p.Poses[i].Header.FrameID.Capacity = 4
+		p.Poses[i].Header.Stamp = Time{100000, 1000000}
+		p.Poses[i].Pose.Position = wp
+	}
+	return &p
 }

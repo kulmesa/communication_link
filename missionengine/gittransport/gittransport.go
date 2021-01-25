@@ -1,51 +1,60 @@
 package gittransport
 
 import (
-	"crypto"
-	"errors"
-	"io"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
-	"strings"
+	"os/exec"
 	"time"
 
 	sssh "golang.org/x/crypto/ssh"
 
 	//"github.com/go-git/go-billy/v5/memfs"
 	git "github.com/go-git/go-git/v5"
-	"github.com/go-git/go-git/v5/plumbing"
-	"github.com/go-git/go-git/v5/plumbing/object"
-	"github.com/go-git/go-git/v5/plumbing/storer"
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
 	"gopkg.in/yaml.v2"
 	//"github.com/go-git/go-git/v5/storage/memory"
 )
 
+// type Config struct {
+// 	Cloud struct {
+// 		Git string `yaml:"git"`
+// 	} `yaml:"cloud"`
+// 	Fleet []struct {
+// 		Name string `yaml:"name"`
+// 		Git  string `yaml:"git"`
+// 	}
+// }
+
+type ConfigDrone struct {
+	Name             string
+	GitServerAddress string
+	GitServerKey     string
+	GitClientKey     string
+}
 type Config struct {
-	Cloud struct {
-		Git string `yaml:"git"`
-	} `yaml:"cloud"`
-	Fleet []struct {
-		Name string `yaml:"name"`
-		Git  string `yaml:"git"`
+	Wifi struct {
+		SSID   string
+		Secret string
 	}
+	Drones []ConfigDrone `yaml:",omitempty"`
 }
 
 type GitEngine struct {
 	Config           Config
 	gitServerAddress string
 	gitServerKey     string
-	gitSigner        sssh.Signer
-	r                *git.Repository
-	flagName         string
-	fileChanges      map[string]time.Time
-	filePositions    map[string]int64
+	// gitSigner        sssh.Signer
+	// r             *git.Repository
+	flagName      string
+	fileChanges   map[string]time.Time
+	filePositions map[string]int64
 }
 
 func (cfg *Config) GetFleetNames() []string {
 	result := make([]string, 0)
-	for _, x := range cfg.Fleet {
+	for _, x := range cfg.Drones {
 		result = append(result, x.Name)
 	}
 
@@ -56,11 +65,12 @@ func (me GitEngine) DataDir() string {
 	return "db/" + me.flagName
 }
 
-func New(gitServerAddress string, gitServerKey string, gitSigner crypto.Signer) *GitEngine {
+func New(gitServerAddress string, gitServerKey string) *GitEngine {
 	flagName := time.Now().Format("20060102150405")
-	signer, _ := sssh.NewSignerFromSigner(gitSigner)
+	// signer, _ := sssh.NewSignerFromSigner(gitSigner)
 
-	repository := cloneRepository(gitServerAddress, signer, flagName)
+	// repository := cloneRepository(gitServerAddress, flagName)
+	cloneRepository(gitServerAddress, flagName)
 
 	config := parseConfig(flagName)
 
@@ -68,14 +78,14 @@ func New(gitServerAddress string, gitServerKey string, gitSigner crypto.Signer) 
 		config,
 		gitServerAddress,
 		gitServerKey,
-		signer,
-		repository,
+		// signer,
 		flagName,
 		make(map[string]time.Time),
 		make(map[string]int64),
 	}
 }
 
+/*
 func (m *GitEngine) CommitAll() {
 	w, err := m.r.Worktree()
 	if err != nil {
@@ -129,8 +139,44 @@ func (m *GitEngine) Commit(f string) {
 		log.Fatal(err)
 	}
 }
+*/
 
-func cloneRepository(gitServerAddress string, gitSigner sssh.Signer, flagName string) *git.Repository {
+func (m *GitEngine) CommitAll() {
+}
+
+func (m *GitEngine) pullFiles() bool {
+	gitSSHCommand := "ssh -i /fog-drone/ssh/id_rsa -o \"IdentitiesOnly=yes\" -o \"UserKnownHostsFile=/fog-drone/ssh/known_host_cloud\""
+	cloneCmd := exec.Command("git", "pull", "--rebase")
+	cloneCmd.Env = []string{"GIT_SSH_COMMAND=" + gitSSHCommand}
+	cloneCmd.Dir = "db/" + m.flagName
+	cloneOut, err := cloneCmd.CombinedOutput()
+	if err != nil {
+		log.Printf("%s\n\nCould not clone: %v", cloneOut, err)
+		return false
+	}
+
+	return true
+}
+
+func cloneRepository(gitServerAddress string, flagName string) {
+	gitSSHCommand := "ssh -i /fog-drone/ssh/id_rsa -o \"IdentitiesOnly=yes\" -o \"UserKnownHostsFile=/fog-drone/ssh/known_host_cloud\""
+	repoAddr := fmt.Sprintf("ssh://git@%s/fleet.git", gitServerAddress)
+	cloneCmd := exec.Command("git", "clone", repoAddr, "db/"+flagName)
+	cloneCmd.Env = []string{"GIT_SSH_COMMAND=" + gitSSHCommand}
+	cloneOut, err := cloneCmd.CombinedOutput()
+	if err != nil {
+		log.Printf("%s\n\nCould not clone: %v", cloneOut, err)
+		return
+	}
+	// log.Printf("%s", cloneOut)
+	// o, e := exec.Command("ls", "-la", "fleet-db").CombinedOutput()
+	// log.Printf("%s", o)
+	// if e != nil {
+	// 	log.Printf("err: %v", e)
+	// }
+}
+
+func cloneRepository_old(gitServerAddress string, gitSigner sssh.Signer, flagName string) *git.Repository {
 	// sshKey, err := ioutil.ReadFile("id_ed25519")
 	// if err != nil {
 	// 	log.Fatalf("sshkey file: %v", err)
@@ -195,6 +241,7 @@ func parseConfig(flagName string) Config {
 	return configFile
 }
 
+/*
 func (m *GitEngine) pullFiles() bool {
 	r := m.r
 	// sshKey, err := ioutil.ReadFile("id_ed25519")
@@ -508,15 +555,16 @@ func pullWithMerge(flagName string, w *git.Worktree, r *git.Repository, o *git.P
 	}); err != nil {
 		return err
 	}
-	/*
+	//
 
-		err := w.Pull(&git.PullOptions{
-			RemoteName: "origin",
-			Progress:   os.Stdout,
-		})
-		if err != nil && err != git.NoErrAlreadyUpToDate {
-			log.Fatal(err)
-		}
-	*/
+	// 	err := w.Pull(&git.PullOptions{
+	// 		RemoteName: "origin",
+	// 		Progress:   os.Stdout,
+	// 	})
+	// 	if err != nil && err != git.NoErrAlreadyUpToDate {
+	// 		log.Fatal(err)
+	// 	}
+	//
 	return nil
 }
+*/

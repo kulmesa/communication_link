@@ -3,7 +3,6 @@ package missionengine
 import (
 	// "C"
 	"context"
-	"crypto"
 	"log"
 	"sync"
 	"time"
@@ -34,18 +33,19 @@ const (
 type MissionEngine struct {
 	ctx       context.Context
 	wg        *sync.WaitGroup
-	node      *ros.Node
+	localNode *ros.Node
+	fleetNode *ros.Node
 	droneName string
 }
 
-func New(ctx context.Context, wg *sync.WaitGroup, node *ros.Node, droneName string) *MissionEngine {
-	return &MissionEngine{ctx, wg, node, droneName}
+func New(ctx context.Context, wg *sync.WaitGroup, localNode *ros.Node, fleetNode *ros.Node, droneName string) *MissionEngine {
+	return &MissionEngine{ctx, wg, localNode, fleetNode, droneName}
 }
 
-func (me *MissionEngine) Start(gitServerAddress string, gitServerKey string, gitSigner crypto.Signer) {
+func (me *MissionEngine) Start(gitServerAddress string, gitServerKey string) {
 	ctx := me.ctx
 	wg := me.wg
-	node := me.node
+	node := me.fleetNode
 	droneName := me.droneName
 
 	go func() {
@@ -56,8 +56,9 @@ func (me *MissionEngine) Start(gitServerAddress string, gitServerKey string, git
 			}
 		}()
 		log.Printf("Starting mission engine of drone: '%s'", droneName)
+		time.Sleep(10 * time.Second)
 		log.Printf("Running git clone...")
-		gt := gittransport.New(gitServerAddress, gitServerKey, gitSigner)
+		gt := gittransport.New(gitServerAddress, gitServerKey)
 		drones := gt.Config.GetFleetNames()
 		log.Printf("Fleet discovered: %v", drones)
 
@@ -69,22 +70,24 @@ func (me *MissionEngine) Start(gitServerAddress string, gitServerKey string, git
 		we := worldengine.New(droneName, drones, leader)
 
 		messages := make(chan msg.Message)
-		go runMessageLoop(ctx, wg, we, node, messages)
+		go runMessageLoop(ctx, wg, we, me.localNode, node, messages)
 		go runGitTransport(ctx, wg, gt, messages, droneName)
 		go runSubscriber(ctx, wg, messages, node, droneName)
 		// go runPublisher(ctx, wg, node)
 	}()
 }
 
-func runMessageLoop(ctx context.Context, wg *sync.WaitGroup, we *worldengine.WorldEngine, node *ros.Node, ch <-chan msg.Message) {
+func runMessageLoop(ctx context.Context, wg *sync.WaitGroup, we *worldengine.WorldEngine, localNode *ros.Node, fleetNode *ros.Node, ch <-chan msg.Message) {
 	wg.Add(1)
 	defer wg.Done()
 
-	pub := node.InitPublisher(TOPIC_TASKS_ASSIGNED, "std_msgs/msg/String", (*types.String)(nil))
+	pub := fleetNode.InitPublisher(TOPIC_TASKS_ASSIGNED, "std_msgs/msg/String", (*types.String)(nil))
+	pubpath := localNode.InitPublisher("path", "nav_msgs/msg/Path", (*types.Path)(nil))
+	pubmavlink := localNode.InitPublisher("mavlinkcmd", "std_msgs/msg/String", (*types.String)(nil))
 
 	for m := range ch {
 		log.Printf("Message received: %s: %s", m.MessageType, m.Message)
-		messagesOut := we.HandleMessage(m)
+		messagesOut := we.HandleMessage(m, pubpath, pubmavlink)
 		for _, r := range messagesOut {
 			log.Printf("Message out: %v", r)
 			pub.DoPublish(types.GenerateString(r.Message))
@@ -92,6 +95,8 @@ func runMessageLoop(ctx context.Context, wg *sync.WaitGroup, we *worldengine.Wor
 	}
 
 	pub.Finish()
+	pubpath.Finish()
+	pubmavlink.Finish()
 }
 
 func runGitTransport(ctx context.Context, wg *sync.WaitGroup, gt *gittransport.GitEngine, ch chan<- msg.Message, droneName string) {
