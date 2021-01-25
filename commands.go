@@ -2,10 +2,16 @@ package main
 
 import (
 	"context"
-	"crypto/ed25519"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
+	"io/ioutil"
 	"log"
+	"os"
+	"os/exec"
 	"strings"
 	"sync"
 	"time"
@@ -14,6 +20,7 @@ import (
 	ros "github.com/tiiuae/communication_link/ros"
 	types "github.com/tiiuae/communication_link/types"
 	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/knownhosts"
 )
 
 type controlCommand struct {
@@ -32,18 +39,29 @@ type trustEvent struct {
 }
 
 func InitializeTrust(client mqtt.Client) {
-	publicKey, privateKey, err := ed25519.GenerateKey(nil)
+	//publicKey, privateKey, err := ed25519.GenerateKey(nil)
+	privateKey, err := rsa.GenerateKey(rand.Reader, 4096)
+	publicKey := &privateKey.PublicKey
 	if err != nil {
-		log.Print("Could not generate SSH keys")
+		log.Print("Could not generate keys")
 		return
 	}
-	_ = privateKey
+
+	privBytes := x509.MarshalPKCS1PrivateKey(privateKey)
+
+	privatePemData := pem.EncodeToMemory(&pem.Block{
+		Type:  "RSA PRIVATE KEY",
+		Bytes: privBytes,
+	})
+
+	os.Mkdir("ssh", 0755)
+	err = ioutil.WriteFile("ssh/id_rsa", privatePemData, 0600)
 
 	sshPublicKey, _ := ssh.NewPublicKey(publicKey)
 	sshPublicKeyStr := ssh.MarshalAuthorizedKey(sshPublicKey)
 
 	trust, _ := json.Marshal(trustEvent{
-		PublicSSHKey: string(sshPublicKeyStr),
+		PublicSSHKey: strings.TrimSuffix(string(sshPublicKeyStr), "\n"),
 	})
 
 	// send public key to server
@@ -71,6 +89,30 @@ func JoinFleet(client mqtt.Client, payload []byte) {
 		return
 	}
 	log.Printf("Git config: %+v", info)
+
+	// TODO: knownhosts.HashHostname
+	knownCloudHost := fmt.Sprintf("%s %s\n", knownhosts.Normalize(info.GitServerAddress), info.GitServerKey)
+	err = ioutil.WriteFile("ssh/known_host_cloud", []byte(knownCloudHost), 0644)
+	if err != nil {
+		log.Printf("Could not write known_host_cloud file: %v", err)
+		return
+	}
+
+	gitSSHCommand := "ssh -i ssh/id_rsa -o \"IdentitiesOnly=yes\" -o \"UserKnownHostsFile=ssh/known_host_cloud\""
+	repoAddr := fmt.Sprintf("ssh://git@%s/fleet.git", info.GitServerAddress)
+	cloneCmd := exec.Command("git", "clone", repoAddr, "fleet-db")
+	cloneCmd.Env = []string{"GIT_SSH_COMMAND=" + gitSSHCommand}
+	cloneOut, err := cloneCmd.CombinedOutput()
+	if err != nil {
+		log.Printf("%s\n\nCould not clone: %v", cloneOut, err)
+		return
+	}
+	log.Printf("%s", cloneOut)
+	o, e := exec.Command("ls", "-la", "fleet-db").CombinedOutput()
+	log.Printf("%s", o)
+	if e != nil {
+		log.Printf("err: %v", e)
+	}
 }
 
 // handleControlCommand takes a command string and forwards it to mavlinkcmd
