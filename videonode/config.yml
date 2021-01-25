@@ -1,11 +1,14 @@
 # default videofeed source
-default: front
+default: simulator
 
 cameras:
 
-  - id: front
+  - id: simulator
     source: udpsrc port=5600
-    #source: /dev/video0
+    #parameters:
+
+  - id: front
+    source: /dev/video0
     #parameters:
 
   - id: rear

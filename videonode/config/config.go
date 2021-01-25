@@ -7,9 +7,9 @@ import (
 )
 
 var defaultConfig = []byte(`
-default: front
+default: simulator
 cameras:
-- id: front
+- id: simulator
   source: udpsrc port=5600`)
 
 type Config struct {
