@@ -11,7 +11,7 @@ import (
 	"sync"
 	"syscall"
 
-	gstreamer "github.com/tiiuae/communication_link/gstreamer"
+	gstreamer "github.com/tiiuae/communication_link/gst"
 	ros "github.com/tiiuae/communication_link/ros"
 	types "github.com/tiiuae/communication_link/types"
 	conf "github.com/tiiuae/communication_link/videonode/config"
