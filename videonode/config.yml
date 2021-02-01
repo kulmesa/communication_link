@@ -8,15 +8,15 @@ cameras:
     #parameters:
 
   - id: front
-    source: /dev/video0
+    source: v4l2src /dev/video0
     #parameters:
 
   - id: rear
-    source: /dev/video1
+    source: v4l2src /dev/video1
     #parameters:
 
   - id: down
-    source: /dev/video2
+    source: v4l2src /dev/video2
     #parameters:
 
 

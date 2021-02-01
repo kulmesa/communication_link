@@ -31,6 +31,11 @@ type gstreamerCmd struct {
 	Source  string
 }
 
+type gstCh struct {
+	Ch chan bool
+	Source  string
+}
+
 func main() {
 	flag.Parse()
 	config = conf.NewConfig(*configPath)
@@ -66,7 +71,8 @@ func handleGstMessages(ctx context.Context, node *ros.Node) {
 	log.Printf("Creating subscriber for %s", "String")
 	sub := node.InitSubscriber(messages, "videostreamcmd", "std_msgs/msg/String")
 	go sub.DoSubscribe(ctx)
-	var ch chan bool
+	chs := []*gstCh{}
+
 	for m := range messages {
 		msg := C.GoString((*C.char)(m.Data))
 		log.Printf(msg)
@@ -79,13 +85,17 @@ func handleGstMessages(ctx context.Context, node *ros.Node) {
 		}
 		switch gstCmd.Command {
 		case "start":
-			ch = make(chan bool)
-			go StartVideoStream(*deviceID, gstCmd.Address, gstCmd.Source, ch)
+			stopCh := new(gstCh)
+			stopCh.Ch = make(chan bool)
+			stopCh.Source = gstCmd.Source
+			chs = append(chs, stopCh)
+			go StartVideoStream(*deviceID, gstCmd.Address, gstCmd.Source, stopCh.Ch)
 		case "stop":
-			select {
-			case <-ch:
-			default:
-				close(ch)
+			for i, stopCh := range chs{
+				if gstCmd.Source == stopCh.Source{
+					close(stopCh.Ch)
+					chs = append(chs[:i],chs[i+1:]...)
+				}
 			}
 		}
 	}
@@ -106,9 +116,8 @@ func StartVideoStream(deviceID string, address string, source string, ch chan (b
 
 	log.Println("StartVideoStream:", deviceID)
 
-	//	pipelineStr := "udpsrc port=5600"
 	pipelineStr := config.GetSource(source)
-	pipelineStr += " name=mysource "
+	pipelineStr += " name=source "
 	pipelineStr += "! rtph264depay "
 	rtspclientstr := fmt.Sprintf("! rtspclientsink name=sink protocols=tcp location=%s tls-validation-flags=generic-error",
 		address)
@@ -117,7 +126,7 @@ func StartVideoStream(deviceID string, address string, source string, ch chan (b
 	log.Println(pipelineStr)
 
 	pipeline, err := gstreamer.New(pipelineStr)
-	appsrc := pipeline.FindElement("mysource")
+	appsrc := pipeline.FindElement("source")
 
 	appsrc.SetCap("application/x-rtp, media=(string)video, clock-rate=(int)90000, encoding-name=(string)H264")
 
