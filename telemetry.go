@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"sync"
+	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	uuid "github.com/google/uuid"
@@ -30,9 +31,16 @@ type sensorData struct {
 	MessageID  string
 }
 
+var rosStartTime uint64 = 0
+
 func sendGPSData(mqttClient mqtt.Client, gpsdata types.VehicleGlobalPosition) {
 	topic := fmt.Sprintf("/devices/%s/%s", *deviceID, "events")
 	u := uuid.New()
+	if rosStartTime == 0 {
+		rosStartTime = uint64(time.Now().UnixNano()/1000) - gpsdata.Timestamp
+	}
+	gpsdata.Timestamp = gpsdata.Timestamp + rosStartTime
+	gpsdata.Timestamp_sample = gpsdata.Timestamp_sample + rosStartTime
 	t := telemetry{
 		GpsData:   gpsdata,
 		DeviceID:  *deviceID,
@@ -45,6 +53,10 @@ func sendGPSData(mqttClient mqtt.Client, gpsdata types.VehicleGlobalPosition) {
 func sendSensorData(mqttClient mqtt.Client, data types.SensorCombined) {
 	topic := fmt.Sprintf("/devices/%s/%s", *deviceID, "events/sensordata")
 	u := uuid.New()
+	if rosStartTime == 0 {
+		rosStartTime = uint64(time.Now().UnixNano()/1000) - data.Timestamp
+	}
+	data.Timestamp = data.Timestamp + rosStartTime
 	t := sensorData{
 		SensorData: data,
 		DeviceID:   *deviceID,
