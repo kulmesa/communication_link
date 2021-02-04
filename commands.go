@@ -79,7 +79,7 @@ func InitializeTrust(client mqtt.Client) {
 	log.Printf("Trust initialized")
 }
 
-func JoinFleet(client mqtt.Client, payload []byte, me *missionengine.MissionEngine) {
+func JoinMission(client mqtt.Client, payload []byte, me *missionengine.MissionEngine) {
 	var info struct {
 		GitServerAddress string `json:"git_server_address"`
 		GitServerKey     string `json:"git_server_key"`
@@ -115,9 +115,9 @@ func handleControlCommand(command string, mqttClient mqtt.Client, pub *ros.Publi
 	case "initialize-trust":
 		log.Printf("Initializing trust with backend")
 		InitializeTrust(mqttClient)
-	case "join-fleet":
-		log.Printf("Backend requesting to join a fleet")
-		JoinFleet(mqttClient, []byte(cmd.Payload), me)
+	case "join-mission":
+		log.Printf("Backend requesting to join a mission")
+		JoinMission(mqttClient, []byte(cmd.Payload), me)
 
 	case "takeoff":
 		log.Printf("Publishing 'takeoff' to /mavlinkcmd")

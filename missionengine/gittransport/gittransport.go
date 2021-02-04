@@ -160,7 +160,7 @@ func (m *GitEngine) pullFiles() bool {
 
 func cloneRepository(gitServerAddress string, flagName string) {
 	gitSSHCommand := "ssh -i /fog-drone/ssh/id_rsa -o \"IdentitiesOnly=yes\" -o \"UserKnownHostsFile=/fog-drone/ssh/known_host_cloud\""
-	repoAddr := fmt.Sprintf("ssh://git@%s/fleet.git", gitServerAddress)
+	repoAddr := fmt.Sprintf("ssh://git@%s/mission.git", gitServerAddress)
 	cloneCmd := exec.Command("git", "clone", repoAddr, "db/"+flagName)
 	cloneCmd.Env = []string{"GIT_SSH_COMMAND=" + gitSSHCommand}
 	cloneOut, err := cloneCmd.CombinedOutput()
