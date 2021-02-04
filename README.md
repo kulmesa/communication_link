@@ -14,11 +14,12 @@ source ../../install/setup.bash
 go build
 ```
 
-In addition to communication link, the gstreamer node can be built as well from this repo.
-Gstreamer node listens the video stream and streams it to rtsp server in cloud.
-It can be built as follows:
+In addition to communication link, the video streaming node can be built as well from this repo.
+The videonode listens a selected video stream based on the configuration file and streams it to rtsp server in cloud.
+The video feed can be selected from cloud by sending mqtt messages to select a wanted camera configuration. Please see the image videonode/videostream.png. 
+The videonode can be built as follows:
 ```
-cd gstnode
+cd videonode
 go build
 ```
 
@@ -26,7 +27,7 @@ go build
 
 ```
 ./communication_link -device_id "<my-device-id>"
-gstnode/gstnode -device_id "<my-device-id>"
+videonode/videonode -device_id "<my-device-id>"
 ```
 
 
