@@ -86,15 +86,7 @@ static inline void do_publish_c(void* publisher,char* msgtype, void* data){
 	rcl_publisher_t* pub = (rcl_publisher_t*)publisher;
 	rcl_ret_t ret = RCL_RET_ERROR;
 	if (strncmp(msgtype, "nav_msgs/msg/Path", strlen(msgtype))==0 ){
-		nav_msgs__msg__Path pub_msg;
-		char d[1] = {0};
-        pub_msg.header.frame_id.data = d;
-		pub_msg.header.frame_id.size = 1;
-		pub_msg.header.frame_id.capacity = 2;
-		pub_msg.poses.data = data;
-		pub_msg.poses.capacity = 1;
-		pub_msg.poses.size = 1;
-		ret = rcl_publish(pub, &pub_msg,NULL);
+		ret = rcl_publish(pub, data,NULL);
 		printf("published nav\n");
 
 	}

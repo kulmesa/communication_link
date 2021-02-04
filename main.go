@@ -15,6 +15,7 @@ import (
 
 	jwt "github.com/dgrijalva/jwt-go"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/tiiuae/communication_link/missionengine"
 	ros "github.com/tiiuae/communication_link/ros"
 )
 
@@ -55,10 +56,14 @@ func main() {
 	mqttClient := newMQTTClient()
 	defer mqttClient.Disconnect(1000)
 
-	node := ros.InitRosNode(*deviceID, "communication_link")
-	defer node.ShutdownRosNode()
-	startTelemetry(ctx, &wg, mqttClient, node)
-	startCommandHandlers(ctx, &wg, mqttClient, node)
+	localNode := ros.InitRosNode(*deviceID, "communication_link")
+	defer localNode.ShutdownRosNode()
+	fleetNode := ros.InitRosNode("fleet", "communication_link")
+	defer fleetNode.ShutdownRosNode()
+	me := missionengine.New(ctx, &wg, localNode, fleetNode, *deviceID)
+
+	startTelemetry(ctx, &wg, mqttClient, localNode)
+	startCommandHandlers(ctx, &wg, mqttClient, localNode, me)
 
 	// wait for termination and close quit to signal all
 	<-terminationSignals

@@ -11,12 +11,12 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
-	"os/exec"
 	"strings"
 	"sync"
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/tiiuae/communication_link/missionengine"
 	ros "github.com/tiiuae/communication_link/ros"
 	types "github.com/tiiuae/communication_link/types"
 	"golang.org/x/crypto/ssh"
@@ -78,7 +78,8 @@ func InitializeTrust(client mqtt.Client) {
 	}
 	log.Printf("Trust initialized")
 }
-func JoinFleet(client mqtt.Client, payload []byte) {
+
+func JoinFleet(client mqtt.Client, payload []byte, me *missionengine.MissionEngine) {
 	var info struct {
 		GitServerAddress string `json:"git_server_address"`
 		GitServerKey     string `json:"git_server_key"`
@@ -98,25 +99,11 @@ func JoinFleet(client mqtt.Client, payload []byte) {
 		return
 	}
 
-	gitSSHCommand := "ssh -i ssh/id_rsa -o \"IdentitiesOnly=yes\" -o \"UserKnownHostsFile=ssh/known_host_cloud\""
-	repoAddr := fmt.Sprintf("ssh://git@%s/fleet.git", info.GitServerAddress)
-	cloneCmd := exec.Command("git", "clone", repoAddr, "fleet-db")
-	cloneCmd.Env = []string{"GIT_SSH_COMMAND=" + gitSSHCommand}
-	cloneOut, err := cloneCmd.CombinedOutput()
-	if err != nil {
-		log.Printf("%s\n\nCould not clone: %v", cloneOut, err)
-		return
-	}
-	log.Printf("%s", cloneOut)
-	o, e := exec.Command("ls", "-la", "fleet-db").CombinedOutput()
-	log.Printf("%s", o)
-	if e != nil {
-		log.Printf("err: %v", e)
-	}
+	me.Start(info.GitServerAddress, info.GitServerKey)
 }
 
 // handleControlCommand takes a command string and forwards it to mavlinkcmd
-func handleControlCommand(command string, mqttClient mqtt.Client, pub *ros.Publisher) {
+func handleControlCommand(command string, mqttClient mqtt.Client, pub *ros.Publisher, me *missionengine.MissionEngine) {
 	var cmd controlCommand
 	err := json.Unmarshal([]byte(command), &cmd)
 	if err != nil {
@@ -130,7 +117,7 @@ func handleControlCommand(command string, mqttClient mqtt.Client, pub *ros.Publi
 		InitializeTrust(mqttClient)
 	case "join-fleet":
 		log.Printf("Backend requesting to join a fleet")
-		JoinFleet(mqttClient, []byte(cmd.Payload))
+		JoinFleet(mqttClient, []byte(cmd.Payload), me)
 
 	case "takeoff":
 		log.Printf("Publishing 'takeoff' to /mavlinkcmd")
@@ -202,7 +189,7 @@ func handleGstreamerCommand(command string, pub *ros.Publisher) {
 }
 
 // handleControlCommands routine waits for commands and executes them. The routine quits when quit channel is closed
-func handleControlCommands(ctx context.Context, wg *sync.WaitGroup, mqttClient mqtt.Client, node *ros.Node, commands <-chan string) {
+func handleControlCommands(ctx context.Context, wg *sync.WaitGroup, mqttClient mqtt.Client, node *ros.Node, commands <-chan string, me *missionengine.MissionEngine) {
 	wg.Add(1)
 	defer wg.Done()
 	pub := node.InitPublisher("mavlinkcmd", "std_msgs/msg/String", (*types.String)(nil))
@@ -212,7 +199,7 @@ func handleControlCommands(ctx context.Context, wg *sync.WaitGroup, mqttClient m
 			pub.Finish()
 			return
 		case command := <-commands:
-			handleControlCommand(command, mqttClient, pub)
+			handleControlCommand(command, mqttClient, pub, me)
 		}
 	}
 }
@@ -249,13 +236,13 @@ func handleGstreamerCommands(ctx context.Context, wg *sync.WaitGroup, node *ros.
 	}
 }
 
-func startCommandHandlers(ctx context.Context, wg *sync.WaitGroup, mqttClient mqtt.Client, node *ros.Node) {
+func startCommandHandlers(ctx context.Context, wg *sync.WaitGroup, mqttClient mqtt.Client, node *ros.Node, me *missionengine.MissionEngine) {
 
 	controlCommands := make(chan string)
 	missionCommands := make(chan string)
 	gstreamerCommands := make(chan string)
 
-	go handleControlCommands(ctx, wg, mqttClient, node, controlCommands)
+	go handleControlCommands(ctx, wg, mqttClient, node, controlCommands, me)
 	go handleMissionCommands(ctx, wg, node, missionCommands)
 	go handleGstreamerCommands(ctx, wg, node, gstreamerCommands)
 

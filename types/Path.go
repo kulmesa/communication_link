@@ -19,6 +19,17 @@ type Path struct {
 	Poses  []PoseStamped
 }
 
+type CPath struct {
+	Header Header
+	Poses  CPoseData
+}
+
+type CPoseData struct {
+	Data     uintptr
+	Size     int
+	Capacity int
+}
+
 //TypeSupport ROS msg typesupport
 func (t *Path) TypeSupport() unsafe.Pointer {
 	return unsafe.Pointer(C.ts_path())
@@ -26,13 +37,23 @@ func (t *Path) TypeSupport() unsafe.Pointer {
 
 //GetData data getter
 func (t *Path) GetData() unsafe.Pointer {
-	return unsafe.Pointer(&(t.Poses[0]))
+	result := CPath{
+		Header: t.Header,
+		Poses: CPoseData{
+			Data:     uintptr(unsafe.Pointer(&t.Poses[0])),
+			Size:     len(t.Poses),
+			Capacity: len(t.Poses),
+		},
+	}
+
+	return unsafe.Pointer(&result)
 }
 
 //Finish resource release
 func (t *Path) Finish() {
-	C.free(unsafe.Pointer(t.Poses[0].Header.FrameID.Data))
-	C.free(unsafe.Pointer(t.Poses[1].Header.FrameID.Data))
+	for _, pose := range t.Poses {
+		C.free(unsafe.Pointer(pose.Header.FrameID.Data))
+	}
 }
 
 //GeneratePath path generation
@@ -55,4 +76,27 @@ func GeneratePath() *Path {
 	t.Poses[1].Pose.Position.Y = 2.0
 	t.Poses[1].Pose.Position.Z = 3.0
 	return t
+}
+
+// NewPath returns a valid path with given poses
+func NewPath(waypoints []Point) *Path {
+	p := Path{
+		Header: Header{
+			Stamp: Time{10000, 100000},
+			FrameID: String{
+				Data:     C.CString("map"),
+				Size:     3,
+				Capacity: 4,
+			},
+		},
+		Poses: make([]PoseStamped, len(waypoints)),
+	}
+	for i, wp := range waypoints {
+		p.Poses[i].Header.FrameID.Data = C.CString("map")
+		p.Poses[i].Header.FrameID.Size = 3
+		p.Poses[i].Header.FrameID.Capacity = 4
+		p.Poses[i].Header.Stamp = Time{100000, 1000000}
+		p.Poses[i].Pose.Position = wp
+	}
+	return &p
 }
