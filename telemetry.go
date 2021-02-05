@@ -34,7 +34,7 @@ type sensorData struct {
 var rosStartTime uint64 = 0
 
 func sendGPSData(mqttClient mqtt.Client, gpsdata types.VehicleGlobalPosition) {
-	topic := fmt.Sprintf("/devices/%s/%s", *deviceID, "events")
+	topic := fmt.Sprintf("/devices/%s/%s", *deviceID, "events/location")
 	u := uuid.New()
 	if rosStartTime == 0 {
 		rosStartTime = uint64(time.Now().UnixNano()/1000) - gpsdata.Timestamp
