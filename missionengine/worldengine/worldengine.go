@@ -44,9 +44,9 @@ func (we *WorldEngine) HandleMessage(msg types.Message, pubPath *ros.Publisher, 
 
 type TaskCreated struct {
 	ID string  `json:"id"`
-	X  float64 `json:"x"`
-	Y  float64 `json:"y"`
-	Z  float64 `json:"z"`
+	X  float64 `json:"lat"`
+	Y  float64 `json:"lon"`
+	Z  float64 `json:"alt"`
 }
 
 type TasksAssigned struct {
@@ -55,9 +55,9 @@ type TasksAssigned struct {
 
 type TaskAssignment struct {
 	ID string  `json:"id"`
-	X  float64 `json:"x"`
-	Y  float64 `json:"y"`
-	Z  float64 `json:"z"`
+	X  float64 `json:"lat"`
+	Y  float64 `json:"lon"`
+	Z  float64 `json:"alt"`
 }
 
 type TaskCompleted struct {
