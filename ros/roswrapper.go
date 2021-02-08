@@ -12,7 +12,6 @@ import (
 /*
 #cgo LDFLAGS: -L/opt/ros/foxy/lib -Wl,-rpath=/opt/ros/foxy/lib -lrcl -lrosidl_runtime_c -lrosidl_typesupport_c -lstd_msgs__rosidl_generator_c -lstd_msgs__rosidl_typesupport_c -lrcutils -lrmw_implementation -lpx4_msgs__rosidl_typesupport_c -lnav_msgs__rosidl_typesupport_c -lnav_msgs__rosidl_generator_c
 #cgo CFLAGS: -I/opt/ros/foxy/include
-//#include "px4_msgs/msg/vehicle_global_position.h"
 #include "rcutils/types/uint8_array.h"
 #include "rcl/subscription.h"
 #include "rcl/publisher.h"
