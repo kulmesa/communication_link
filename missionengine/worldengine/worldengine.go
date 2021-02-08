@@ -15,15 +15,23 @@ type WorldEngine struct {
 	state  *worldState
 }
 
-func New(me string, fleet []string, leader string) *WorldEngine {
-	return &WorldEngine{me, leader, fleet, createState(fleet, leader, me)}
+func New(me string) *WorldEngine {
+	return &WorldEngine{me, "", make([]string, 0), createState(me)}
 }
 
 func (we *WorldEngine) HandleMessage(msg types.Message, pubPath *ros.Publisher, pubMavlink *ros.Publisher) []types.Message {
 	state := we.state
 	outgoing := make([]types.Message, 0)
 	log.Printf("WorldEngine handling: %s (%s -> %s)", msg.MessageType, msg.From, msg.To)
-	if msg.MessageType == "task-created" && we.Me == we.Leader {
+	if msg.MessageType == "drone-added" {
+		var message DroneAdded
+		json.Unmarshal([]byte(msg.Message), &message)
+		we.Fleet = append(we.Fleet, message.Name)
+		if len(we.Fleet) == 1 {
+			we.Leader = message.Name
+		}
+		outgoing = state.handleDroneAdded(message)
+	} else if msg.MessageType == "task-created" && we.Me == we.Leader {
 		var message TaskCreated
 		json.Unmarshal([]byte(msg.Message), &message)
 		outgoing = state.handleTaskCreated(message)
@@ -41,6 +49,10 @@ func (we *WorldEngine) HandleMessage(msg types.Message, pubPath *ros.Publisher, 
 }
 
 // Message types
+
+type DroneAdded struct {
+	Name string `json:"name"`
+}
 
 type TaskCreated struct {
 	ID string  `json:"id"`

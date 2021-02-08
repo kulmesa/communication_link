@@ -37,20 +37,42 @@ type backlogItem struct {
 	Z      float64
 }
 
-func createState(fleet []string, leader string, me string) *worldState {
+func createState(me string) *worldState {
 	return &worldState{
 		MyName:     me,
-		LeaderName: leader,
-		Drones:     createDrones(fleet, leader),
+		LeaderName: "",
+		Backlog:    make([]*backlogItem, 0),
+		Drones:     make(map[string]*droneState, 0),
 	}
 }
 
-func createDrones(fleet []string, leader string) map[string]*droneState {
-	drones := make(map[string]*droneState, 0)
-	for _, x := range fleet {
-		drones[x] = &droneState{x, x == leader, []*taskState{}}
+// func createDrones(fleet []string, leader string) map[string]*droneState {
+// 	drones := make(map[string]*droneState, 0)
+// 	for _, x := range fleet {
+// 		drones[x] = &droneState{x, x == leader, []*taskState{}}
+// 	}
+// 	return drones
+// }
+
+func (s *worldState) handleDroneAdded(msg DroneAdded) []types.Message {
+	name := msg.Name
+	isLeader := len(s.Drones) == 0
+	if isLeader {
+		s.LeaderName = name
 	}
-	return drones
+	s.Drones[name] = &droneState{name, isLeader, []*taskState{}}
+
+	// Done if not leader
+	if s.LeaderName != s.MyName {
+		return []types.Message{}
+	}
+
+	if len(s.Backlog) == 0 {
+		return []types.Message{}
+	}
+
+	// Re-assign tasks
+	return s.assignTasks()
 }
 
 func (s *worldState) handleTaskCreated(msg TaskCreated) []types.Message {

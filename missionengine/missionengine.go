@@ -56,18 +56,10 @@ func (me *MissionEngine) Start(gitServerAddress string, gitServerKey string) {
 			}
 		}()
 		log.Printf("Starting mission engine of drone: '%s'", droneName)
-		time.Sleep(10 * time.Second)
 		log.Printf("Running git clone...")
 		gt := gittransport.New(gitServerAddress, gitServerKey)
-		drones := gt.Config.GetFleetNames()
-		log.Printf("Fleet discovered: %v", drones)
 
-		leader := drones[0]
-		if droneName == leader {
-			log.Printf("Elected as leader")
-		}
-
-		we := worldengine.New(droneName, drones, leader)
+		we := worldengine.New(droneName)
 
 		messages := make(chan msg.Message)
 		go runMessageLoop(ctx, wg, we, me.localNode, node, messages)
