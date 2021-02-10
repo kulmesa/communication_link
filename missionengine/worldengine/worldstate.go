@@ -80,9 +80,9 @@ func (s *worldState) handleTaskCreated(msg TaskCreated) []types.Message {
 	bi := backlogItem{
 		ID:     msg.ID,
 		Status: "",
-		X:      msg.X,
-		Y:      msg.Y,
-		Z:      msg.Z,
+		X:      msg.Payload.X,
+		Y:      msg.Payload.Y,
+		Z:      msg.Payload.Z,
 	}
 	s.Backlog = append(s.Backlog, &bi)
 
@@ -156,6 +156,10 @@ func (s *worldState) assignTasks() []types.Message {
 		result.Tasks[drone] = append(result.Tasks[drone], &task)
 	}
 
+	msg1 := serialize(result)
+	var temp TasksAssignedMqtt
+	deserialize(msg1, &temp)
+	msg2 := serialize(temp.Tasks)
 	return []types.Message{
 		{
 			Timestamp:   time.Now().UTC(),
@@ -163,7 +167,15 @@ func (s *worldState) assignTasks() []types.Message {
 			To:          "*",
 			ID:          "id1",
 			MessageType: "tasks-assigned",
-			Message:     serialize(result),
+			Message:     msg1,
+		},
+		{
+			Timestamp:   time.Now().UTC(),
+			From:        s.MyName,
+			To:          "*",
+			ID:          "id1",
+			MessageType: "mission-plan",
+			Message:     msg2,
 		},
 	}
 }

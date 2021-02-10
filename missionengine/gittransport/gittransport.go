@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"time"
 
 	//"github.com/go-git/go-billy/v5/memfs"
@@ -55,7 +57,11 @@ func (m *GitEngine) CommitAll() {
 }
 
 func (m *GitEngine) pullFiles() bool {
-	gitSSHCommand := "ssh -i /fog-drone/ssh/id_rsa -o \"IdentitiesOnly=yes\" -o \"UserKnownHostsFile=/fog-drone/ssh/known_host_cloud\""
+	wd, _ := os.Getwd()
+	idPath := filepath.Join(wd, "/ssh/id_rsa")
+	khPath := filepath.Join(wd, "/ssh/known_host_cloud")
+	gitSSHCommand := fmt.Sprintf("ssh -i %s -o \"IdentitiesOnly=yes\" -o \"UserKnownHostsFile=%s\"", idPath, khPath)
+	log.Println(gitSSHCommand)
 	cloneCmd := exec.Command("git", "pull", "--rebase")
 	cloneCmd.Env = []string{"GIT_SSH_COMMAND=" + gitSSHCommand}
 	cloneCmd.Dir = "db/" + m.flagName
@@ -69,7 +75,11 @@ func (m *GitEngine) pullFiles() bool {
 }
 
 func cloneRepository(gitServerAddress string, flagName string) {
-	gitSSHCommand := "ssh -i /fog-drone/ssh/id_rsa -o \"IdentitiesOnly=yes\" -o \"UserKnownHostsFile=/fog-drone/ssh/known_host_cloud\""
+	wd, _ := os.Getwd()
+	idPath := filepath.Join(wd, "/ssh/id_rsa")
+	khPath := filepath.Join(wd, "/ssh/known_host_cloud")
+	gitSSHCommand := fmt.Sprintf("ssh -i %s -o \"IdentitiesOnly=yes\" -o \"UserKnownHostsFile=%s\"", idPath, khPath)
+	log.Println(gitSSHCommand)
 	repoAddr := fmt.Sprintf("ssh://git@%s/mission.git", gitServerAddress)
 	cloneCmd := exec.Command("git", "clone", repoAddr, "db/"+flagName)
 	cloneCmd.Env = []string{"GIT_SSH_COMMAND=" + gitSSHCommand}

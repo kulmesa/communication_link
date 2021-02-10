@@ -3,10 +3,12 @@ package missionengine
 import (
 	// "C"
 	"context"
+	"fmt"
 	"log"
 	"sync"
 	"time"
 
+	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/tiiuae/communication_link/missionengine/gittransport"
 	msg "github.com/tiiuae/communication_link/missionengine/types"
 	"github.com/tiiuae/communication_link/missionengine/worldengine"
@@ -31,15 +33,16 @@ const (
 )
 
 type MissionEngine struct {
-	ctx       context.Context
-	wg        *sync.WaitGroup
-	localNode *ros.Node
-	fleetNode *ros.Node
-	droneName string
+	ctx        context.Context
+	wg         *sync.WaitGroup
+	localNode  *ros.Node
+	fleetNode  *ros.Node
+	mqttClient mqtt.Client
+	droneName  string
 }
 
-func New(ctx context.Context, wg *sync.WaitGroup, localNode *ros.Node, fleetNode *ros.Node, droneName string) *MissionEngine {
-	return &MissionEngine{ctx, wg, localNode, fleetNode, droneName}
+func New(ctx context.Context, wg *sync.WaitGroup, localNode *ros.Node, fleetNode *ros.Node, mqttClient mqtt.Client, droneName string) *MissionEngine {
+	return &MissionEngine{ctx, wg, localNode, fleetNode, mqttClient, droneName}
 }
 
 func (me *MissionEngine) Start(gitServerAddress string, gitServerKey string) {
@@ -62,14 +65,14 @@ func (me *MissionEngine) Start(gitServerAddress string, gitServerKey string) {
 		we := worldengine.New(droneName)
 
 		messages := make(chan msg.Message)
-		go runMessageLoop(ctx, wg, we, me.localNode, node, messages)
+		go runMessageLoop(ctx, wg, we, me.localNode, node, me.mqttClient, messages)
 		go runGitTransport(ctx, wg, gt, messages, droneName)
 		go runSubscriber(ctx, wg, messages, node, droneName)
 		// go runPublisher(ctx, wg, node)
 	}()
 }
 
-func runMessageLoop(ctx context.Context, wg *sync.WaitGroup, we *worldengine.WorldEngine, localNode *ros.Node, fleetNode *ros.Node, ch <-chan msg.Message) {
+func runMessageLoop(ctx context.Context, wg *sync.WaitGroup, we *worldengine.WorldEngine, localNode *ros.Node, fleetNode *ros.Node, mqttClient mqtt.Client, ch <-chan msg.Message) {
 	wg.Add(1)
 	defer wg.Done()
 
@@ -82,7 +85,13 @@ func runMessageLoop(ctx context.Context, wg *sync.WaitGroup, we *worldengine.Wor
 		messagesOut := we.HandleMessage(m, pubpath, pubmavlink)
 		for _, r := range messagesOut {
 			log.Printf("Message out: %v", r)
-			pub.DoPublish(types.GenerateString(r.Message))
+			if r.MessageType == "tasks-assigned" {
+				pub.DoPublish(types.GenerateString(r.Message))
+			}
+			if r.MessageType == "mission-plan" {
+				topic := fmt.Sprintf("/devices/%s/events/mission-plan", r.From)
+				mqttClient.Publish(topic, 1, false, r.Message)
+			}
 		}
 	}
 

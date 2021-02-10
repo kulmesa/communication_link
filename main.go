@@ -60,7 +60,7 @@ func main() {
 	defer localNode.ShutdownRosNode()
 	fleetNode := ros.InitRosNode("fleet", "communication_link")
 	defer fleetNode.ShutdownRosNode()
-	me := missionengine.New(ctx, &wg, localNode, fleetNode, *deviceID)
+	me := missionengine.New(ctx, &wg, localNode, fleetNode, mqttClient, *deviceID)
 
 	startTelemetry(ctx, &wg, mqttClient, localNode)
 	startCommandHandlers(ctx, &wg, mqttClient, localNode, me)

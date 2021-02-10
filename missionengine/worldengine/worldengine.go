@@ -55,10 +55,12 @@ type DroneAdded struct {
 }
 
 type TaskCreated struct {
-	ID string  `json:"id"`
-	X  float64 `json:"lat"`
-	Y  float64 `json:"lon"`
-	Z  float64 `json:"alt"`
+	ID      string `json:"id"`
+	Payload struct {
+		X float64 `json:"lat"`
+		Y float64 `json:"lon"`
+		Z float64 `json:"alt"`
+	} `json:"payload"`
 }
 
 type TasksAssigned struct {
@@ -70,6 +72,14 @@ type TaskAssignment struct {
 	X  float64 `json:"lat"`
 	Y  float64 `json:"lon"`
 	Z  float64 `json:"alt"`
+}
+
+type TasksAssignedMqtt struct {
+	Tasks map[string][]*TaskAssignmentMqtt `json:"tasks"`
+}
+
+type TaskAssignmentMqtt struct {
+	ID string `json:"id"`
 }
 
 type TaskCompleted struct {
