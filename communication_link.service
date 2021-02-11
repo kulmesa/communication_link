@@ -1,0 +1,19 @@
+[Unit]
+Description=Communication link - ROS2 Node
+
+[Service]
+Type=simple
+User=root
+Environment=MQTT_BROKER_ADDRESS=tcp://localhost:8883
+Environment=DEVICE_ID=d3
+Environment=PRIVATE_KEY_PATH=/enclave/rsa_private.pem
+WorkingDirectory=/opt/communication_link
+ExecStart=/opt/communication_link/communication_link.service.wrapper.sh
+
+RestartSec=5s
+Restart=always
+
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target
