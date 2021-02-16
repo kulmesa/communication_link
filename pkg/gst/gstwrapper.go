@@ -40,7 +40,7 @@ static void GstSetCaps(GstElement *element, char *capstr) {
         GParamSpec *spec = g_object_class_find_property(G_OBJECT_GET_CLASS(obj), "caps");
         if(spec) {
              g_object_set(obj, "caps", caps, NULL);
-        } 
+        }
     }
     gst_caps_unref(caps);
 }
@@ -65,19 +65,19 @@ type Element struct {
 
 type Pipeline struct {
 	pipeline *C.GstPipeline
-	msgs chan *Msg
+	msgs     chan *Msg
 	id       int
 }
 
 var (
 	pipelines = make(map[int]*Pipeline)
-	elements = make(map[int]*Element)
-	gstLock sync.Mutex
-	gstID = 12345
+	elements  = make(map[int]*Element)
+	gstLock   sync.Mutex
+	gstID     = 12345
 )
 
 func init() {
-	C.gst_init(nil,nil)
+	C.gst_init(nil, nil)
 }
 
 func New(pipelineStr string) (*Pipeline, error) {
@@ -92,7 +92,7 @@ func New(pipelineStr string) (*Pipeline, error) {
 	}
 	gstLock.Lock()
 	defer gstLock.Unlock()
-	gstID ++
+	gstID++
 	pipeline.id = gstID
 	pipelines[pipeline.id] = pipeline
 	return pipeline, nil
@@ -124,7 +124,7 @@ func (p *Pipeline) FindElement(name string) *Element {
 	}
 	gstLock.Lock()
 	defer gstLock.Unlock()
-	gstID ++
+	gstID++
 	element.id = gstID
 	elements[element.id] = element
 	return element

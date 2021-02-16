@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"crypto/tls"
-	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -15,22 +14,20 @@ import (
 
 	jwt "github.com/dgrijalva/jwt-go"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/spf13/viper"
+
+	"github.com/tiiuae/communication_link/pkg/commands"
+	_ "github.com/tiiuae/communication_link/pkg/config"
 	"github.com/tiiuae/communication_link/pkg/missionengine"
 	ros "github.com/tiiuae/communication_link/pkg/ros"
+	"github.com/tiiuae/communication_link/pkg/telemetry"
 )
 
 const (
-	registryID    = "fleet-registry"
-	projectID     = "auto-fleet-mgnt"
-	region        = "europe-west1"
-	algorithm     = "RS256"
-	defaultServer = "ssl://mqtt.googleapis.com:8883"
-)
-
-var (
-	deviceID          = flag.String("device_id", "", "The provisioned device id")
-	mqttBrokerAddress = flag.String("mqtt_broker", "", "MQTT broker protocol, address and port")
-	privateKeyPath    = flag.String("private_key", "/enclave/rsa_private.pem", "The private key for the MQTT authentication")
+	registryID = "fleet-registry"
+	projectID  = "auto-fleet-mgnt"
+	region     = "europe-west1"
+	algorithm  = "RS256"
 )
 
 // MQTT parameters
@@ -42,7 +39,6 @@ const (
 )
 
 func main() {
-	flag.Parse()
 	// attach sigint & sigterm listeners
 	terminationSignals := make(chan os.Signal, 1)
 	signal.Notify(terminationSignals, syscall.SIGINT, syscall.SIGTERM)
@@ -56,14 +52,14 @@ func main() {
 	mqttClient := newMQTTClient()
 	defer mqttClient.Disconnect(1000)
 
-	localNode := ros.InitRosNode(*deviceID, "communication_link")
+	localNode := ros.InitRosNode(viper.GetString("device-id"), "communication_link")
 	defer localNode.ShutdownRosNode()
 	fleetNode := ros.InitRosNode("fleet", "communication_link")
 	defer fleetNode.ShutdownRosNode()
-	me := missionengine.New(ctx, &wg, localNode, fleetNode, mqttClient, *deviceID)
+	me := missionengine.New(ctx, &wg, localNode, fleetNode, mqttClient, viper.GetString("device-id"))
 
-	startTelemetry(ctx, &wg, mqttClient, localNode)
-	startCommandHandlers(ctx, &wg, mqttClient, localNode, me)
+	telemetry.StartTelemetry(ctx, &wg, mqttClient, localNode)
+	commands.StartCommandHandlers(ctx, &wg, mqttClient, localNode, me)
 
 	// wait for termination and close quit to signal all
 	<-terminationSignals
@@ -78,21 +74,18 @@ func main() {
 }
 
 func newMQTTClient() mqtt.Client {
-	serverAddress := *mqttBrokerAddress
-	if serverAddress == "" {
-		serverAddress = defaultServer
-	}
+	serverAddress := viper.GetString("mqtt-broker")
 	log.Printf("address: %v", serverAddress)
 
 	// generate MQTT client
 	clientID := fmt.Sprintf(
 		"projects/%s/locations/%s/registries/%s/devices/%s",
-		projectID, region, registryID, *deviceID)
+		projectID, region, registryID, viper.GetString("device-id"))
 
 	log.Println("Client ID:", clientID)
 
 	// load private key
-	keyData, err := ioutil.ReadFile(*privateKeyPath)
+	keyData, err := ioutil.ReadFile(viper.GetString("private-key"))
 	if err != nil {
 		panic(err)
 	}

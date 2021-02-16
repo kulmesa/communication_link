@@ -10,6 +10,7 @@ import (
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	uuid "github.com/google/uuid"
+	"github.com/spf13/viper"
 	ros "github.com/tiiuae/communication_link/pkg/ros"
 	types "github.com/tiiuae/communication_link/pkg/types"
 )
@@ -34,7 +35,7 @@ type sensorData struct {
 var rosStartTime uint64 = 0
 
 func sendGPSData(mqttClient mqtt.Client, gpsdata types.VehicleGlobalPosition) {
-	topic := fmt.Sprintf("/devices/%s/%s", *deviceID, "events/location")
+	topic := fmt.Sprintf("/devices/%s/%s", viper.GetString("device-id"), "events/location")
 	u := uuid.New()
 	if rosStartTime == 0 {
 		rosStartTime = uint64(time.Now().UnixNano()/1000) - gpsdata.Timestamp
@@ -43,7 +44,7 @@ func sendGPSData(mqttClient mqtt.Client, gpsdata types.VehicleGlobalPosition) {
 	gpsdata.Timestamp_sample = gpsdata.Timestamp_sample + rosStartTime
 	t := telemetry{
 		GpsData:   gpsdata,
-		DeviceID:  *deviceID,
+		DeviceID:  viper.GetString("device-id"),
 		MessageID: u.String(),
 	}
 	b, _ := json.Marshal(t)
@@ -51,7 +52,7 @@ func sendGPSData(mqttClient mqtt.Client, gpsdata types.VehicleGlobalPosition) {
 }
 
 func sendSensorData(mqttClient mqtt.Client, data types.SensorCombined) {
-	topic := fmt.Sprintf("/devices/%s/%s", *deviceID, "events/sensordata")
+	topic := fmt.Sprintf("/devices/%s/%s", viper.GetString("device-id"), "events/sensordata")
 	u := uuid.New()
 	if rosStartTime == 0 {
 		rosStartTime = uint64(time.Now().UnixNano()/1000) - data.Timestamp
@@ -59,7 +60,7 @@ func sendSensorData(mqttClient mqtt.Client, data types.SensorCombined) {
 	data.Timestamp = data.Timestamp + rosStartTime
 	t := sensorData{
 		SensorData: data,
-		DeviceID:   *deviceID,
+		DeviceID:   viper.GetString("device-id"),
 		MessageID:  u.String(),
 	}
 	b, _ := json.Marshal(t)
@@ -92,7 +93,7 @@ func handleSensorMessages(ctx context.Context, mqttClient mqtt.Client, node *ros
 	sub.Finish()
 }
 
-func startTelemetry(ctx context.Context, wg *sync.WaitGroup, mqttClient mqtt.Client, node *ros.Node) {
+func StartTelemetry(ctx context.Context, wg *sync.WaitGroup, mqttClient mqtt.Client, node *ros.Node) {
 	wg.Add(2)
 	go func() {
 		defer wg.Done()

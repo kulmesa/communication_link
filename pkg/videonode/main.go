@@ -11,6 +11,7 @@ import (
 	"sync"
 	"syscall"
 
+	"github.com/spf13/viper"
 	gstreamer "github.com/tiiuae/communication_link/pkg/gst"
 	ros "github.com/tiiuae/communication_link/pkg/ros"
 	types "github.com/tiiuae/communication_link/pkg/types"
@@ -50,7 +51,7 @@ func main() {
 	// wait group will make sure all goroutines have time to clean up
 	var wg sync.WaitGroup
 
-	node := ros.InitRosNode(*deviceID, "videonode")
+	node := ros.InitRosNode(viper.GetString("device-id"), "videonode")
 	defer node.ShutdownRosNode()
 	startGstcmdListening(ctx, node, &wg)
 
@@ -89,7 +90,7 @@ func handleGstMessages(ctx context.Context, node *ros.Node) {
 			stopCh.Ch = make(chan bool)
 			stopCh.Source = gstCmd.Source
 			chs = append(chs, stopCh)
-			go StartVideoStream(*deviceID, gstCmd.Address, gstCmd.Source, stopCh.Ch)
+			go StartVideoStream(viper.GetString("device-id"), gstCmd.Address, gstCmd.Source, stopCh.Ch)
 		case "stop":
 			for i, stopCh := range chs {
 				if gstCmd.Source == stopCh.Source {

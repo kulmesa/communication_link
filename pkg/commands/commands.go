@@ -16,11 +16,17 @@ import (
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/spf13/viper"
 	"github.com/tiiuae/communication_link/pkg/missionengine"
 	ros "github.com/tiiuae/communication_link/pkg/ros"
 	types "github.com/tiiuae/communication_link/pkg/types"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/knownhosts"
+)
+
+const (
+	qos    = 1
+	retain = false
 )
 
 type controlCommand struct {
@@ -65,7 +71,7 @@ func InitializeTrust(client mqtt.Client) {
 	})
 
 	// send public key to server
-	topic := fmt.Sprintf("/devices/%s/events/trust", *deviceID)
+	topic := fmt.Sprintf("/devices/%s/events/trust", viper.GetString("device-id"))
 	tok := client.Publish(topic, qos, retain, trust)
 	if !tok.WaitTimeout(10 * time.Second) {
 		log.Printf("Could not send trust within 10s")
@@ -236,7 +242,7 @@ func handleGstreamerCommands(ctx context.Context, wg *sync.WaitGroup, node *ros.
 	}
 }
 
-func startCommandHandlers(ctx context.Context, wg *sync.WaitGroup, mqttClient mqtt.Client, node *ros.Node, me *missionengine.MissionEngine) {
+func StartCommandHandlers(ctx context.Context, wg *sync.WaitGroup, mqttClient mqtt.Client, node *ros.Node, me *missionengine.MissionEngine) {
 
 	controlCommands := make(chan string)
 	missionCommands := make(chan string)
@@ -247,7 +253,7 @@ func startCommandHandlers(ctx context.Context, wg *sync.WaitGroup, mqttClient mq
 	go handleGstreamerCommands(ctx, wg, node, gstreamerCommands)
 
 	log.Printf("Subscribing to MQTT commands")
-	commandTopic := fmt.Sprintf("/devices/%s/commands/", *deviceID)
+	commandTopic := fmt.Sprintf("/devices/%s/commands/", viper.GetString("device-id"))
 	token := mqttClient.Subscribe(fmt.Sprintf("%v#", commandTopic), 0, func(client mqtt.Client, msg mqtt.Message) {
 		subfolder := strings.TrimPrefix(msg.Topic(), commandTopic)
 		switch subfolder {
