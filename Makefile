@@ -1,9 +1,14 @@
+SHELL := /bin/bash
+
 ARCH := $(shell dpkg --print-architecture)
 RELEASE := $(shell lsb_release -cs)
 
 build:
 	openssl req -x509 -newkey rsa:2048 -keyout rsa_private.pem -nodes -out rsa_cert.pem -subj "/CN=unused"
 	go build .
+
+run: build
+	source /opt/ros/foxy/setup.bash && ./communication_link -k rsa_private.pem -m tcp://localhost:8883 -d comlink-dev
 
 install:
 	# If the service has been previously installed, stop it so the running binaries can be replaced
