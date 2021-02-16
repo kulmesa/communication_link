@@ -1,4 +1,4 @@
-package main
+package telemetry
 
 import (
 	"context"
@@ -10,8 +10,8 @@ import (
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	uuid "github.com/google/uuid"
-	ros "github.com/tiiuae/communication_link/ros"
-	types "github.com/tiiuae/communication_link/types"
+	ros "github.com/tiiuae/communication_link/pkg/ros"
+	types "github.com/tiiuae/communication_link/pkg/types"
 )
 
 const (

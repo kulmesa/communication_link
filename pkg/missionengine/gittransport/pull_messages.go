@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/tiiuae/communication_link/missionengine/types"
+	"github.com/tiiuae/communication_link/pkg/missionengine/types"
 )
 
 func (me *GitEngine) PullMessages(droneName string) []types.Message {

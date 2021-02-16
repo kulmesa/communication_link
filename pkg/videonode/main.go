@@ -11,10 +11,10 @@ import (
 	"sync"
 	"syscall"
 
-	gstreamer "github.com/tiiuae/communication_link/gst"
-	ros "github.com/tiiuae/communication_link/ros"
-	types "github.com/tiiuae/communication_link/types"
-	conf "github.com/tiiuae/communication_link/videonode/config"
+	gstreamer "github.com/tiiuae/communication_link/pkg/gst"
+	ros "github.com/tiiuae/communication_link/pkg/ros"
+	types "github.com/tiiuae/communication_link/pkg/types"
+	conf "github.com/tiiuae/communication_link/pkg/videonode/config"
 )
 
 import "C"
@@ -32,8 +32,8 @@ type gstreamerCmd struct {
 }
 
 type gstCh struct {
-	Ch chan bool
-	Source  string
+	Ch     chan bool
+	Source string
 }
 
 func main() {
@@ -91,10 +91,10 @@ func handleGstMessages(ctx context.Context, node *ros.Node) {
 			chs = append(chs, stopCh)
 			go StartVideoStream(*deviceID, gstCmd.Address, gstCmd.Source, stopCh.Ch)
 		case "stop":
-			for i, stopCh := range chs{
-				if gstCmd.Source == stopCh.Source{
+			for i, stopCh := range chs {
+				if gstCmd.Source == stopCh.Source {
 					close(stopCh.Ch)
-					chs = append(chs[:i],chs[i+1:]...)
+					chs = append(chs[:i], chs[i+1:]...)
 				}
 			}
 		}

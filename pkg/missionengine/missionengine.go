@@ -9,11 +9,11 @@ import (
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
-	"github.com/tiiuae/communication_link/missionengine/gittransport"
-	msg "github.com/tiiuae/communication_link/missionengine/types"
-	"github.com/tiiuae/communication_link/missionengine/worldengine"
-	"github.com/tiiuae/communication_link/ros"
-	types "github.com/tiiuae/communication_link/types"
+	"github.com/tiiuae/communication_link/pkg/missionengine/gittransport"
+	msg "github.com/tiiuae/communication_link/pkg/missionengine/types"
+	"github.com/tiiuae/communication_link/pkg/missionengine/worldengine"
+	"github.com/tiiuae/communication_link/pkg/ros"
+	types "github.com/tiiuae/communication_link/pkg/types"
 )
 
 import "C"

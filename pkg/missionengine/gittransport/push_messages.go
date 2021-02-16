@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/tiiuae/communication_link/missionengine/types"
+	"github.com/tiiuae/communication_link/pkg/missionengine/types"
 )
 
 func (me *GitEngine) PushMessages(messages []types.Message) error {

@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/tiiuae/communication_link/missionengine/types"
-	"github.com/tiiuae/communication_link/ros"
-	rosTypes "github.com/tiiuae/communication_link/types"
+	"github.com/tiiuae/communication_link/pkg/missionengine/types"
+	"github.com/tiiuae/communication_link/pkg/ros"
+	rosTypes "github.com/tiiuae/communication_link/pkg/types"
 )
 
 type Drones map[string]*droneState
