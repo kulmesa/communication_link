@@ -85,7 +85,7 @@ func sendSensorData(mqttClient mqtt.Client, data types.SensorCombined) {
 }
 
 func sendVehicleLocalPosition(mqttClient mqtt.Client, data types.VehicleLocalPosition) {
-	topic := fmt.Sprintf("/devices/%s/%s", *deviceID, "events/localposition")
+	topic := fmt.Sprintf("/devices/%s/%s", *deviceID, "events/vehiclelocalposition")
 	u := uuid.New()
 	data.Timestamp = data.Timestamp + rosStartTime
 	t := vehicleLocalPosition{
@@ -152,7 +152,7 @@ func handleSensorMessages(ctx context.Context, mqttClient mqtt.Client, node *ros
 func handleLocalPosMessages(ctx context.Context, mqttClient mqtt.Client, node *ros.Node) {
 	messages := make(chan types.VehicleLocalPosition)
 	log.Printf("Creating subscriber for %s", "VehicleLocalPosition")
-	sub := node.InitSubscriber(messages, "VehicleLocalPosition_PubSubTopic", "px4_msgs/msg/VehicleLocalPosition")
+	sub := node.InitSubscriber(messages, "CHECK_THIS_VehicleLocalPosition_PubSubTopic", "px4_msgs/msg/VehicleLocalPosition")
 	go sub.DoSubscribe(ctx)
 	for m := range messages {
 		sendVehicleLocalPosition(mqttClient, m)
@@ -164,7 +164,7 @@ func handleLocalPosMessages(ctx context.Context, mqttClient mqtt.Client, node *r
 func handleStatusMessages(ctx context.Context, mqttClient mqtt.Client, node *ros.Node) {
 	messages := make(chan types.VehicleStatus)
 	log.Printf("Creating subscriber for %s", "SensorCombined")
-	sub := node.InitSubscriber(messages, "VehicleStatus_PubSubTopic", "px4_msgs/msg/VehicleStatus")
+	sub := node.InitSubscriber(messages, "CHECK_THIS_VehicleStatus_PubSubTopic", "px4_msgs/msg/VehicleStatus")
 	go sub.DoSubscribe(ctx)
 	for m := range messages {
 		sendVehicleStatus(mqttClient, m)
@@ -176,7 +176,7 @@ func handleStatusMessages(ctx context.Context, mqttClient mqtt.Client, node *ros
 func handleBatteryMessages(ctx context.Context, mqttClient mqtt.Client, node *ros.Node) {
 	messages := make(chan types.BatteryStatus)
 	log.Printf("Creating subscriber for %s", "BatteryStatus")
-	sub := node.InitSubscriber(messages, "Battery_PubSubTopic", "px4_msgs/msg/BatteryStatus")
+	sub := node.InitSubscriber(messages, "CHECK_THIS_Battery_PubSubTopic", "px4_msgs/msg/BatteryStatus")
 	go sub.DoSubscribe(ctx)
 	for m := range messages {
 		sendBatteryData(mqttClient, m)
