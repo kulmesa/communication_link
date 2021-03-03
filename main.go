@@ -28,9 +28,10 @@ const (
 )
 
 var (
-	deviceID          = flag.String("device_id", "", "The provisioned device id")
-	mqttBrokerAddress = flag.String("mqtt_broker", "", "MQTT broker protocol, address and port")
-	privateKeyPath    = flag.String("private_key", "/enclave/rsa_private.pem", "The private key for the MQTT authentication")
+	deafultFlagSet    = flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
+	deviceID          = deafultFlagSet.String("device_id", "", "The provisioned device id")
+	mqttBrokerAddress = deafultFlagSet.String("mqtt_broker", "", "MQTT broker protocol, address and port")
+	privateKeyPath    = deafultFlagSet.String("private_key", "/enclave/rsa_private.pem", "The private key for the MQTT authentication")
 )
 
 // MQTT parameters
@@ -42,7 +43,8 @@ const (
 )
 
 func main() {
-	flag.Parse()
+	deafultFlagSet.Parse(os.Args[1:])
+
 	// attach sigint & sigterm listeners
 	terminationSignals := make(chan os.Signal, 1)
 	signal.Notify(terminationSignals, syscall.SIGINT, syscall.SIGTERM)

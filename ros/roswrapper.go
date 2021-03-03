@@ -3,6 +3,7 @@ package ros
 import (
 	"context"
 	"fmt"
+	"os"
 	"reflect"
 	"strings"
 	"time"
@@ -32,7 +33,14 @@ typedef struct Publisher_C {
 	rcl_publisher_t_ptr pub_ptr;
 } publisher_t;
 
-static inline void* init_ros_ctx(){
+static void* allocArgv(int argc) {
+    return malloc(sizeof(char *) * argc);
+}
+static void setString(const char*argv[], int i, const char *str) {
+	argv[i] = str;
+}
+
+static inline void* init_ros_ctx(int argc, const char *argv[]){
 	rcl_ret_t ret;
 	rcl_init_options_t init_options = rcl_get_zero_initialized_init_options();
 	ret = rcl_init_options_init(&init_options, rcl_get_default_allocator());
@@ -42,7 +50,7 @@ static inline void* init_ros_ctx(){
 	}
 	rcl_context_t_ptr ctx_ptr = malloc(sizeof(rcl_context_t));
 	*ctx_ptr = rcl_get_zero_initialized_context();
-	ret = rcl_init(0, NULL, &init_options, ctx_ptr);
+	ret = rcl_init(argc, argv, &init_options, ctx_ptr);
 	if (ret != RCL_RET_OK) {
 		printf("Failed to initialize rcl.\n");
 		return NULL;
@@ -186,7 +194,17 @@ func InitRosNode(namespace string, nodename string) *Node {
 	fmt.Println("init ros")
 	ns := strings.ReplaceAll(namespace, "/", "")
 	ns = strings.ReplaceAll(ns, "-", "")
-	ctxPtr := C.rcl_context_t_ptr(C.init_ros_ctx())
+
+	argv := os.Args
+	argc := C.int(len(argv))
+	cArgv := (**C.char)(C.allocArgv(argc))
+	for i, arg := range argv {
+		str := C.CString(arg)
+		C.setString(cArgv, C.int(i), str)
+		defer C.free(unsafe.Pointer(str))
+	}
+	defer C.free(unsafe.Pointer(cArgv))
+	ctxPtr := C.rcl_context_t_ptr(C.init_ros_ctx(argc, (**C.char)(cArgv)))
 	nodeNameC := C.CString(nodename)
 	nsc := C.CString(ns)
 	nodePtr := C.rcl_node_t_ptr(C.init_ros_node(unsafe.Pointer(ctxPtr), nodeNameC, nsc))
