@@ -78,7 +78,7 @@ func startSendingTelemetry(ctx context.Context, mqttClient mqtt.Client) {
 	topic := fmt.Sprintf("/devices/%s/%s", *deviceID, "events/telemetry")
 	for {
 		select {
-		case <-time.After(100 * time.Millisecond):
+		case <-time.After(500 * time.Millisecond):
 			u := uuid.New()
 			telemetryMutex.Lock()
 			if telemetrySent {
