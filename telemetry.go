@@ -21,17 +21,23 @@ const (
 )
 
 type telemetry struct {
-	Timestamp        int64
-	MessageID        string
+	Timestamp int64
+	MessageID string
+
+	LocationUpdated  bool
 	Lat              float64
 	Lon              float64
 	Heading          float32
-	BatteryVoltageV  float32
-	BatteryRemaining float32
 	AltitudeFromHome float32
 	DistanceFromHome float32
-	ArmingState      uint8
-	NavState         uint8
+
+	BatteryUpdated   bool
+	BatteryVoltageV  float32
+	BatteryRemaining float32
+
+	StateUpdated bool
+	ArmingState  uint8
+	NavState     uint8
 }
 
 type sensorData struct {
@@ -85,6 +91,9 @@ func startSendingTelemetry(ctx context.Context, mqttClient mqtt.Client) {
 			currentTelemetry.MessageID = u.String()
 			b, _ := json.Marshal(currentTelemetry)
 			telemetrySent = true
+			currentTelemetry.LocationUpdated = false
+			currentTelemetry.StateUpdated = false
+			currentTelemetry.BatteryUpdated = false
 			telemetryMutex.Unlock()
 			mqttClient.Publish(topic, qos, retain, string(b))
 		case <-ctx.Done():
@@ -103,6 +112,7 @@ func handleGPSMessages(ctx context.Context, node *ros.Node) {
 		telemetryMutex.Lock()
 		currentTelemetry.Lat = m.Lat
 		currentTelemetry.Lon = m.Lon
+		currentTelemetry.LocationUpdated = true
 		telemetrySent = false
 		telemetryMutex.Unlock()
 	}
@@ -141,6 +151,7 @@ func handleStatusMessages(ctx context.Context, node *ros.Node) {
 		telemetryMutex.Lock()
 		currentTelemetry.ArmingState = m.ArmingState
 		currentTelemetry.NavState = m.NavState
+		currentTelemetry.StateUpdated = true
 		telemetrySent = false
 		telemetryMutex.Unlock()
 	}
@@ -157,6 +168,7 @@ func handleBatteryMessages(ctx context.Context, node *ros.Node) {
 		telemetryMutex.Lock()
 		currentTelemetry.BatteryVoltageV = m.VoltageV
 		currentTelemetry.BatteryRemaining = m.Remaining
+		currentTelemetry.BatteryUpdated = true
 		telemetrySent = false
 		telemetryMutex.Unlock()
 	}
