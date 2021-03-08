@@ -122,7 +122,7 @@ func handleGPSMessages(ctx context.Context, node *ros.Node) {
 func handleLocalPosMessages(ctx context.Context, node *ros.Node) {
 	messages := make(chan types.VehicleLocalPosition)
 	log.Printf("Creating subscriber for %s", "VehicleLocalPosition")
-	sub := node.InitSubscriber(messages, "CHECK_THIS_VehicleLocalPosition_PubSubTopic", "px4_msgs/msg/VehicleLocalPosition")
+	sub := node.InitSubscriber(messages, "VehicleLocalPosition_PubSubTopic", "px4_msgs/msg/VehicleLocalPosition")
 	go sub.DoSubscribe(ctx)
 	for m := range messages {
 		telemetryMutex.Lock()
@@ -145,7 +145,7 @@ func handleLocalPosMessages(ctx context.Context, node *ros.Node) {
 
 func handleStatusMessages(ctx context.Context, node *ros.Node) {
 	messages := make(chan types.VehicleStatus)
-	sub := node.InitSubscriber(messages, "CHECK_THIS_VehicleStatus_PubSubTopic", "px4_msgs/msg/VehicleStatus")
+	sub := node.InitSubscriber(messages, "VehicleStatus_PubSubTopic", "px4_msgs/msg/VehicleStatus")
 	go sub.DoSubscribe(ctx)
 	for m := range messages {
 		telemetryMutex.Lock()
