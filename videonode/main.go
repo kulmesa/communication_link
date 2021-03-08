@@ -32,8 +32,8 @@ type gstreamerCmd struct {
 }
 
 type gstCh struct {
-	Ch chan bool
-	Source  string
+	Ch     chan bool
+	Source string
 }
 
 func main() {
@@ -71,7 +71,8 @@ func handleGstMessages(ctx context.Context, node *ros.Node) {
 	log.Printf("Creating subscriber for %s", "String")
 	sub := node.InitSubscriber(messages, "videostreamcmd", "std_msgs/msg/String")
 	go sub.DoSubscribe(ctx)
-	chs := []*gstCh{}
+
+	var stop chan struct{}
 
 	for m := range messages {
 		msg := C.GoString((*C.char)(m.Data))
@@ -85,17 +86,20 @@ func handleGstMessages(ctx context.Context, node *ros.Node) {
 		}
 		switch gstCmd.Command {
 		case "start":
-			stopCh := new(gstCh)
-			stopCh.Ch = make(chan bool)
-			stopCh.Source = gstCmd.Source
-			chs = append(chs, stopCh)
-			go StartVideoStream(*deviceID, gstCmd.Address, gstCmd.Source, stopCh.Ch)
+			if stop == nil {
+				log.Println("Starting rtsp stream")
+				stop = make(chan struct{})
+				go StartVideoStream(*deviceID, gstCmd.Address, gstCmd.Source, stop)
+			} else {
+				log.Println("Stream already exists")
+			}
 		case "stop":
-			for i, stopCh := range chs{
-				if gstCmd.Source == stopCh.Source{
-					close(stopCh.Ch)
-					chs = append(chs[:i],chs[i+1:]...)
-				}
+			if stop != nil {
+				log.Println("Stopping rtsp stream")
+				close(stop)
+				stop = nil
+			} else {
+				log.Println("Not streaming")
 			}
 		}
 	}
@@ -112,7 +116,7 @@ func startGstcmdListening(ctx context.Context, node *ros.Node, wg *sync.WaitGrou
 }
 
 //StartVideoStream starts listening videostream and forward to rtsp server
-func StartVideoStream(deviceID string, address string, source string, ch chan (bool)) {
+func StartVideoStream(deviceID string, address string, source string, ch chan struct{}) {
 
 	log.Println("StartVideoStream:", deviceID)
 
