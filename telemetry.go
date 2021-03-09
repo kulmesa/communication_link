@@ -78,7 +78,7 @@ func startSendingTelemetry(ctx context.Context, mqttClient mqtt.Client) {
 	topic := fmt.Sprintf("/devices/%s/%s", *deviceID, "events/telemetry")
 	for {
 		select {
-		case <-time.After(500 * time.Millisecond):
+		case <-time.After(200 * time.Millisecond):
 			u := uuid.New()
 			telemetryMutex.Lock()
 			if telemetrySent {
@@ -128,7 +128,7 @@ func handleLocalPosMessages(ctx context.Context, node *ros.Node) {
 		telemetryMutex.Lock()
 		currentTelemetry.Heading = m.Heading
 		if m.ZValid {
-			currentTelemetry.AltitudeFromHome = m.Z
+			currentTelemetry.AltitudeFromHome = -m.Z
 		} else {
 			currentTelemetry.AltitudeFromHome = 0.0
 		}
