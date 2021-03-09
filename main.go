@@ -135,19 +135,24 @@ func newMQTTClient() mqtt.Client {
 
 	client := mqtt.NewClient(opts)
 
-	// connect to GCP Cloud IoT Core
-	log.Printf("Connecting MQTT...")
-	tok := client.Connect()
-	if err := tok.Error(); err != nil {
-		panic(err)
+	for {
+		// retury for ever
+		// connect to GCP Cloud IoT Core
+		log.Printf("Connecting MQTT...")
+		tok := client.Connect()
+		if err := tok.Error(); err != nil {
+			panic(err)
+		}
+		if !tok.WaitTimeout(time.Second * 5) {
+			log.Println("Connection Timeout")
+			continue
+		}
+		if err := tok.Error(); err != nil {
+			panic(err)
+		}
+		log.Printf("..Connected")
+		break
 	}
-	if !tok.WaitTimeout(time.Second * 5) {
-		log.Fatalf("Connection Timeout")
-	}
-	if err := tok.Error(); err != nil {
-		panic(err)
-	}
-	log.Printf("..Connected")
 
 	// need mqtt reconnect each 120 minutes for long use
 
