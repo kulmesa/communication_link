@@ -2,6 +2,7 @@ package worldengine
 
 import (
 	"encoding/json"
+	"log"
 	"time"
 
 	"github.com/tiiuae/communication_link/missionengine/types"
@@ -32,6 +33,8 @@ type taskState struct {
 type backlogItem struct {
 	ID     string
 	Status string
+	Type   string
+	Drone  string
 	X      float64
 	Y      float64
 	Z      float64
@@ -75,14 +78,37 @@ func (s *worldState) handleDroneAdded(msg DroneAdded) []types.Message {
 	return s.assignTasks()
 }
 
-func (s *worldState) handleTaskCreated(msg TaskCreated) []types.Message {
+func (s *worldState) handleFlyToTaskCreated(msg FlyToTaskCreated) []types.Message {
 	// Add task to backlog
 	bi := backlogItem{
 		ID:     msg.ID,
 		Status: "",
+		Type:   msg.Type,
+		Drone:  "",
 		X:      msg.Payload.X,
 		Y:      msg.Payload.Y,
 		Z:      msg.Payload.Z,
+	}
+	s.Backlog = append(s.Backlog, &bi)
+
+	// Done if not leader
+	if s.LeaderName != s.MyName {
+		return []types.Message{}
+	}
+
+	return s.assignTasks()
+}
+
+func (s *worldState) handleExecutePredefinedToTaskCreated(msg ExecutePredefinedTaskCreated) []types.Message {
+	// Add task to backlog
+	bi := backlogItem{
+		ID:     msg.ID,
+		Status: "",
+		Type:   msg.Type,
+		Drone:  msg.Payload.Drone,
+		X:      0,
+		Y:      0,
+		Z:      0,
 	}
 	s.Backlog = append(s.Backlog, &bi)
 
@@ -104,18 +130,34 @@ func (s *worldState) handleTasksAssigned(msg TasksAssigned, pubPath *ros.Publish
 	}
 
 	// Send PX4 path messages
-	sendFlyToMessages(msg.Tasks[s.MyName], pubPath, pubMavlink)
+	sendFlyToMessages(generatePoints(msg.Tasks[s.MyName]), pubPath, pubMavlink)
 
 	return []types.Message{}
 }
 
-func sendFlyToMessages(tasks []*TaskAssignment, pubPath *ros.Publisher, pubMavlink *ros.Publisher) {
-	if len(tasks) == 0 {
-		return
-	}
+func generatePoints(tasks []*TaskAssignment) []rosTypes.Point {
 	points := make([]rosTypes.Point, 0)
 	for _, t := range tasks {
-		points = append(points, rosTypes.Point{t.X, t.Y, t.Z})
+		if t.Type == "fly-to" {
+			points = append(points, rosTypes.Point{t.X, t.Y, t.Z})
+		} else if t.Type == "execute-preplanned" {
+			path, err := loadPrelanned()
+			if err != nil {
+				log.Println("Preplanned task skipped due to errors")
+				continue
+			}
+			for _, p := range path {
+				points = append(points, rosTypes.Point{p.X, p.Y, p.Z})
+			}
+		}
+	}
+
+	return points
+}
+
+func sendFlyToMessages(points []rosTypes.Point, pubPath *ros.Publisher, pubMavlink *ros.Publisher) {
+	if len(points) == 0 {
+		return
 	}
 
 	path := rosTypes.NewPath(points)
@@ -146,11 +188,15 @@ func (s *worldState) assignTasks() []types.Message {
 			continue
 		}
 		drone := drones[i%len(drones)]
+		if bi.Drone != "" {
+			drone = bi.Drone
+		}
 		task := TaskAssignment{
-			ID: bi.ID,
-			X:  bi.X,
-			Y:  bi.Y,
-			Z:  bi.Z,
+			Type: bi.Type,
+			ID:   bi.ID,
+			X:    bi.X,
+			Y:    bi.Y,
+			Z:    bi.Z,
 		}
 
 		result.Tasks[drone] = append(result.Tasks[drone], &task)

@@ -34,7 +34,15 @@ func (we *WorldEngine) HandleMessage(msg types.Message, pubPath *ros.Publisher, 
 	} else if msg.MessageType == "task-created" && we.Me == we.Leader {
 		var message TaskCreated
 		json.Unmarshal([]byte(msg.Message), &message)
-		outgoing = state.handleTaskCreated(message)
+		if message.Type == "fly-to" {
+			var inner FlyToTaskCreated
+			json.Unmarshal([]byte(msg.Message), &inner)
+			outgoing = state.handleFlyToTaskCreated(inner)
+		} else if message.Type == "execute-preplanned" {
+			var inner ExecutePredefinedTaskCreated
+			json.Unmarshal([]byte(msg.Message), &inner)
+			outgoing = state.handleExecutePredefinedToTaskCreated(inner)
+		}
 	} else if msg.MessageType == "tasks-assigned" {
 		var message TasksAssigned
 		json.Unmarshal([]byte(msg.Message), &message)
@@ -53,13 +61,26 @@ func (we *WorldEngine) HandleMessage(msg types.Message, pubPath *ros.Publisher, 
 type DroneAdded struct {
 	Name string `json:"name"`
 }
-
 type TaskCreated struct {
+	ID   string `json:"id"`
+	Type string `json:"type"`
+}
+
+type FlyToTaskCreated struct {
 	ID      string `json:"id"`
+	Type    string `json:"type"`
 	Payload struct {
 		X float64 `json:"lat"`
 		Y float64 `json:"lon"`
 		Z float64 `json:"alt"`
+	} `json:"payload"`
+}
+
+type ExecutePredefinedTaskCreated struct {
+	ID      string `json:"id"`
+	Type    string `json:"type"`
+	Payload struct {
+		Drone string `json:"drone"`
 	} `json:"payload"`
 }
 
@@ -68,10 +89,11 @@ type TasksAssigned struct {
 }
 
 type TaskAssignment struct {
-	ID string  `json:"id"`
-	X  float64 `json:"lat"`
-	Y  float64 `json:"lon"`
-	Z  float64 `json:"alt"`
+	ID   string  `json:"id"`
+	Type string  `json:"type"`
+	X    float64 `json:"lat"`
+	Y    float64 `json:"lon"`
+	Z    float64 `json:"alt"`
 }
 
 type TasksAssignedMqtt struct {

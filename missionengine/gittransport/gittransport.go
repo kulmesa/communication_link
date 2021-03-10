@@ -61,7 +61,6 @@ func (m *GitEngine) pullFiles() bool {
 	idPath := filepath.Join(wd, "/ssh/id_rsa")
 	khPath := filepath.Join(wd, "/ssh/known_host_cloud")
 	gitSSHCommand := fmt.Sprintf("ssh -i %s -o \"IdentitiesOnly=yes\" -o \"UserKnownHostsFile=%s\"", idPath, khPath)
-	log.Println(gitSSHCommand)
 	cloneCmd := exec.Command("git", "pull", "--rebase")
 	cloneCmd.Env = []string{"GIT_SSH_COMMAND=" + gitSSHCommand}
 	cloneCmd.Dir = "db/" + m.flagName
@@ -79,7 +78,6 @@ func cloneRepository(gitServerAddress string, flagName string) {
 	idPath := filepath.Join(wd, "/ssh/id_rsa")
 	khPath := filepath.Join(wd, "/ssh/known_host_cloud")
 	gitSSHCommand := fmt.Sprintf("ssh -i %s -o \"IdentitiesOnly=yes\" -o \"UserKnownHostsFile=%s\"", idPath, khPath)
-	log.Println(gitSSHCommand)
 	repoAddr := fmt.Sprintf("ssh://git@%s/mission.git", gitServerAddress)
 	cloneCmd := exec.Command("git", "clone", repoAddr, "db/"+flagName)
 	cloneCmd.Env = []string{"GIT_SSH_COMMAND=" + gitSSHCommand}
