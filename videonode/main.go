@@ -122,7 +122,9 @@ func StartVideoStream(deviceID string, address string, source string, ch chan st
 
 	pipelineStr := config.GetSource(source)
 	pipelineStr += " name=source "
+	pipelineStr += "! application/x-rtp "
 	pipelineStr += "! rtph264depay "
+	pipelineStr += "! queue "
 	rtspclientstr := fmt.Sprintf("! rtspclientsink name=sink protocols=tcp location=%s tls-validation-flags=generic-error",
 		address)
 	pipelineStr += rtspclientstr
