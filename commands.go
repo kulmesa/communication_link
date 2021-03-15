@@ -83,6 +83,7 @@ func JoinMission(client mqtt.Client, payload []byte, me *missionengine.MissionEn
 	var info struct {
 		GitServerAddress string `json:"git_server_address"`
 		GitServerKey     string `json:"git_server_key"`
+		MissionSlug      string `json:"mission_slug"`
 	}
 	err := json.Unmarshal(payload, &info)
 	if err != nil {
@@ -99,7 +100,8 @@ func JoinMission(client mqtt.Client, payload []byte, me *missionengine.MissionEn
 		return
 	}
 
-	me.Start(info.GitServerAddress, info.GitServerKey)
+	sshUrl := fmt.Sprintf("ssh://git@%s/%s.git", info.GitServerAddress, info.MissionSlug)
+	me.Start(sshUrl, info.GitServerKey)
 }
 
 // handleControlCommand takes a command string and forwards it to mavlinkcmd

@@ -78,8 +78,7 @@ func cloneRepository(gitServerAddress string, flagName string) {
 	idPath := filepath.Join(wd, "/ssh/id_rsa")
 	khPath := filepath.Join(wd, "/ssh/known_host_cloud")
 	gitSSHCommand := fmt.Sprintf("ssh -i %s -o \"IdentitiesOnly=yes\" -o \"UserKnownHostsFile=%s\"", idPath, khPath)
-	repoAddr := fmt.Sprintf("ssh://git@%s/mission.git", gitServerAddress)
-	cloneCmd := exec.Command("git", "clone", repoAddr, "db/"+flagName)
+	cloneCmd := exec.Command("git", "clone", gitServerAddress, "db/"+flagName)
 	cloneCmd.Env = []string{"GIT_SSH_COMMAND=" + gitSSHCommand}
 	cloneOut, err := cloneCmd.CombinedOutput()
 	if err != nil {
