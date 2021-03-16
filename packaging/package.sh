@@ -1,7 +1,7 @@
 #!/bin/bash
 
 get_version() {
-	version=1.0.0~$(git describe --always --tags --dirty --match "[0-9]*.[0-9]*.[0-9]*")
+	version=1.0."${BUILD_NUMBER}"~$(git describe --always --tags --dirty --match "[0-9]*.[0-9]*.[0-9]*")
 	echo "${version}"
 }
 
@@ -38,6 +38,8 @@ make_deb() {
 	rm -rf "${build_dir}"
 	echo "Done"
 }
+
+BUILD_NUMBER=${1:-0}
 
 version=$(get_version)
 build

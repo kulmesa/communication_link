@@ -34,8 +34,10 @@ WORKDIR /build
 
 COPY . .
 
+ARG BUILD_NUMBER
+
 RUN cd packaging/ \
-    && ./package.sh
+    && ./package.sh ${BUILD_NUMBER}
 
 FROM scratch
 
