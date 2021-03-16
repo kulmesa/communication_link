@@ -2,7 +2,9 @@ name: main
 
 on:
   push:
-    branches: main
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
 
 jobs:
   tii-communication-link-deb:
@@ -21,4 +23,15 @@ jobs:
           docker cp ${container_id}:/packages .
           docker rm ${container_id}
           ls -l packages
-          popd
+
+      - name: Setup JFrog CLI
+        uses: jfrog/setup-jfrog-cli@v1
+        if: github.event_name == 'push'
+        env:
+          JF_ARTIFACTORY_1: ${{ secrets.JF_ARTIFACTORY_SECRET_1 }}
+
+      - name: Ping JFrog CLI
+        env:
+          ARTIFACTORY_URL: ${{ secrets.ARTIFACTORY_URL }}
+        if: github.event_name == 'push'
+        run: jfrog rt ping --url "$ARTIFACTORY_URL"
