@@ -30,8 +30,23 @@ jobs:
         env:
           JF_ARTIFACTORY_1: ${{ secrets.JF_ARTIFACTORY_SECRET_1 }}
 
-      - name: Ping JFrog CLI
+      - name: Ping Artifactory
         env:
           ARTIFACTORY_URL: ${{ secrets.ARTIFACTORY_URL }}
         if: github.event_name == 'push'
         run: jfrog rt ping --url "$ARTIFACTORY_URL"
+
+      - name: Upload to Artifactory
+        env:
+          ARTIFACTORY_URL: ${{ secrets.ARTIFACTORY_URL }}
+          ARTIFACTORY_REPO: ${{ secrets.ARTIFACTORY_REPO }}
+          DISTRIBUTION: focal
+          COMPONENT: fog-sw
+          ARCHITECTURE: amd64
+        if: github.event_name == 'push'
+        run: |
+          set -exu
+          pkg=packages/communication-link_*.deb
+          jfrog rt u --url "$ARTIFACTORY_URL" "$pkg" "$ARTIFACTORY_REPO" \
+                     --deb "$DISTRIBUTION/$COMPONENT/$ARCHITECTURE" \
+                     --target-props COMMIT="$GITHUB_SHA"
