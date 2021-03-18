@@ -14,6 +14,8 @@ jobs:
 
       - uses: docker/setup-buildx-action@v1
 
+      - uses: jfrog/setup-jfrog-cli@v1
+
       # Run docker build
       - name: Run fog-sw docker build
         run: |
@@ -24,29 +26,22 @@ jobs:
           docker rm ${container_id}
           ls -l packages
 
-      - name: Setup JFrog CLI
-        uses: jfrog/setup-jfrog-cli@v1
-        if: github.event_name == 'push'
-        env:
-          JF_ARTIFACTORY_1: ${{ secrets.JF_ARTIFACTORY_SECRET_1 }}
-
-      - name: Ping Artifactory
-        env:
-          ARTIFACTORY_URL: ${{ secrets.ARTIFACTORY_URL }}
-        if: github.event_name == 'push'
-        run: jfrog rt ping --url "$ARTIFACTORY_URL"
-
       - name: Upload to Artifactory
         env:
+          JF_ARTIFACTORY_1: ${{ secrets.JF_ARTIFACTORY_SECRET_1 }}
           ARTIFACTORY_URL: ${{ secrets.ARTIFACTORY_URL }}
           ARTIFACTORY_REPO: ${{ secrets.ARTIFACTORY_REPO }}
           DISTRIBUTION: focal
           COMPONENT: fog-sw
           ARCHITECTURE: amd64
+          CI: true
         if: github.event_name == 'push'
         run: |
           set -exu
-          pkg=packages/communication-link_*.deb
-          jfrog rt u --url "$ARTIFACTORY_URL" "$pkg" "$ARTIFACTORY_REPO" \
+          pkg=$(find packages/ -name 'communication-link*.deb')
+          jfrog rt ping --url "$ARTIFACTORY_URL"
+          jfrog rt u --url "$ARTIFACTORY_URL" \
                      --deb "$DISTRIBUTION/$COMPONENT/$ARCHITECTURE" \
-                     --target-props COMMIT="$GITHUB_SHA"
+                     --target-props COMMIT="$GITHUB_SHA" \
+                     "$pkg" \
+                     "$ARTIFACTORY_REPO"
