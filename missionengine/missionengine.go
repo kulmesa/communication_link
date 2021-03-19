@@ -3,6 +3,7 @@ package missionengine
 import (
 	// "C"
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"sync"
@@ -16,20 +17,9 @@ import (
 	types "github.com/tiiuae/communication_link/types"
 )
 
-import "C"
-
-type TasksAssigned struct {
-	Name    string   `json:"name"`
-	TaskIDs []string `json:"taskIds"`
-}
-
-type DroneState struct {
-	Name      string
-	TaskQueue []string
-}
-
 const (
-	TOPIC_TASKS_ASSIGNED = "missionengine/tasks_assigned"
+	TOPIC_MISSION_ENGINE = "missionengine"
+	TOPIC_MISSION_RESULT = "MissionResult_PubSubTopic"
 )
 
 type MissionEngine struct {
@@ -48,7 +38,6 @@ func New(ctx context.Context, wg *sync.WaitGroup, localNode *ros.Node, fleetNode
 func (me *MissionEngine) Start(gitServerAddress string, gitServerKey string) {
 	ctx := me.ctx
 	wg := me.wg
-	node := me.fleetNode
 	droneName := me.droneName
 
 	go func() {
@@ -65,9 +54,10 @@ func (me *MissionEngine) Start(gitServerAddress string, gitServerKey string) {
 		we := worldengine.New(droneName)
 
 		messages := make(chan msg.Message)
-		go runMessageLoop(ctx, wg, we, me.localNode, node, me.mqttClient, messages)
+		go runMessageLoop(ctx, wg, we, me.localNode, me.fleetNode, me.mqttClient, messages)
 		go runGitTransport(ctx, wg, gt, messages, droneName)
-		go runSubscriber(ctx, wg, messages, node, droneName)
+		go runMissionEngineSubscriber(ctx, wg, messages, me.fleetNode, droneName)
+		go runMissionResultSubscriber(ctx, wg, messages, me.localNode, droneName)
 		// go runPublisher(ctx, wg, node)
 	}()
 }
@@ -76,7 +66,7 @@ func runMessageLoop(ctx context.Context, wg *sync.WaitGroup, we *worldengine.Wor
 	wg.Add(1)
 	defer wg.Done()
 
-	pub := fleetNode.InitPublisher(TOPIC_TASKS_ASSIGNED, "std_msgs/msg/String", (*types.String)(nil))
+	pub := fleetNode.InitPublisher(TOPIC_MISSION_ENGINE, "std_msgs/msg/String", (*types.String)(nil))
 	pubpath := localNode.InitPublisher("path", "nav_msgs/msg/Path", (*types.Path)(nil))
 	pubmavlink := localNode.InitPublisher("mavlinkcmd", "std_msgs/msg/String", (*types.String)(nil))
 
@@ -85,11 +75,19 @@ func runMessageLoop(ctx context.Context, wg *sync.WaitGroup, we *worldengine.Wor
 		messagesOut := we.HandleMessage(m, pubpath, pubmavlink)
 		for _, r := range messagesOut {
 			log.Printf("Message out: %v", r)
-			if r.MessageType == "tasks-assigned" {
-				pub.DoPublish(types.GenerateString(r.Message))
+			if r.MessageType == "tasks-assigned" || r.MessageType == "task-completed" {
+				b, err := json.Marshal(r)
+				if err != nil {
+					panic("Unable to marshal missionengine message")
+				}
+				pub.DoPublish(types.GenerateString(string(b)))
 			}
 			if r.MessageType == "mission-plan" {
 				topic := fmt.Sprintf("/devices/%s/events/mission-plan", r.From)
+				mqttClient.Publish(topic, 1, false, r.Message)
+			}
+			if r.MessageType == "flight-plan" {
+				topic := fmt.Sprintf("/devices/%s/events/flight-plan", r.From)
 				mqttClient.Publish(topic, 1, false, r.Message)
 			}
 		}
@@ -140,11 +138,11 @@ func runGitTransport(ctx context.Context, wg *sync.WaitGroup, gt *gittransport.G
 // 	}
 // }
 
-func runSubscriber(ctx context.Context, wg *sync.WaitGroup, ch chan<- msg.Message, node *ros.Node, droneName string) {
+func runMissionEngineSubscriber(ctx context.Context, wg *sync.WaitGroup, ch chan<- msg.Message, node *ros.Node, droneName string) {
 	wg.Add(1)
 	defer wg.Done()
 	rosMessages := make(chan types.String)
-	sub := node.InitSubscriber(rosMessages, TOPIC_TASKS_ASSIGNED, "std_msgs/msg/String")
+	sub := node.InitSubscriber(rosMessages, TOPIC_MISSION_ENGINE, "std_msgs/msg/String")
 	go sub.DoSubscribe(ctx)
 
 	for {
@@ -153,31 +151,42 @@ func runSubscriber(ctx context.Context, wg *sync.WaitGroup, ch chan<- msg.Messag
 			sub.Finish()
 			return
 		case rosMsg := <-rosMessages:
-			str := C.GoString((*C.char)(rosMsg.Data))
-			ch <- msg.Message{
-				Timestamp:   time.Now().UTC(),
-				From:        "fleet",
-				To:          droneName,
-				ID:          "",
-				MessageType: "tasks-assigned",
-				Message:     str,
+			str := rosMsg.GetString()
+			var m msg.Message
+			err := json.Unmarshal([]byte(str), &m)
+			if err != nil {
+				panic("Unable to unmarshal missionengine message")
 			}
+			ch <- m
 		}
 	}
 }
 
-// func serialize(i interface{}) string {
-// 	b, err := json.Marshal(i)
-// 	if err != nil {
-// 		panic(err)
-// 	}
+func runMissionResultSubscriber(ctx context.Context, wg *sync.WaitGroup, ch chan<- msg.Message, node *ros.Node, droneName string) {
+	wg.Add(1)
+	defer wg.Done()
+	rosMessages := make(chan types.MissionResult)
+	sub := node.InitSubscriber(rosMessages, TOPIC_MISSION_RESULT, "px4_msgs/msg/MissionResult")
+	go sub.DoSubscribe(ctx)
 
-// 	return string(b)
-// }
-
-// func deserialize(jsonString string, i interface{}) {
-// 	err := json.Unmarshal([]byte(jsonString), i)
-// 	if err != nil {
-// 		panic(err)
-// 	}
-// }
+	for {
+		select {
+		case <-ctx.Done():
+			sub.Finish()
+			return
+		case rosMsg := <-rosMessages:
+			b, err := json.Marshal(rosMsg)
+			if err != nil {
+				panic("Unable to marshal MissionResult")
+			}
+			ch <- msg.Message{
+				Timestamp:   time.Now().UTC(),
+				From:        droneName,
+				To:          droneName,
+				ID:          "",
+				MessageType: "mission-result",
+				Message:     string(b),
+			}
+		}
+	}
+}

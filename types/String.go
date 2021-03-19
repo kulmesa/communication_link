@@ -46,3 +46,7 @@ func GenerateString(data string) *String {
 	t.Capacity = t.Size + 1
 	return t
 }
+
+func (t *String) GetString() string {
+	return C.GoString((*C.char)(t.Data))
+}

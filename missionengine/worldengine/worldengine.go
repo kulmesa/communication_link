@@ -51,6 +51,10 @@ func (we *WorldEngine) HandleMessage(msg types.Message, pubPath *ros.Publisher, 
 		var message TaskCompleted
 		json.Unmarshal([]byte(msg.Message), &message)
 		outgoing = state.handleTaskCompleted(message)
+	} else if msg.MessageType == "mission-result" {
+		var message MissionResult
+		json.Unmarshal([]byte(msg.Message), &message)
+		outgoing = state.handleMissionResult(message)
 	}
 
 	return outgoing
@@ -96,14 +100,37 @@ type TaskAssignment struct {
 	Z    float64 `json:"alt"`
 }
 
-type TasksAssignedMqtt struct {
-	Tasks map[string][]*TaskAssignmentMqtt `json:"tasks"`
+type MissionPlan struct {
+	ID         string `json:"id"`
+	AssignedTo string `json:"assigned_to"`
+	Status     string `json:"status"`
 }
 
-type TaskAssignmentMqtt struct {
-	ID string `json:"id"`
+type FlightPlan struct {
+	Reached bool    `json:"reached"`
+	X       float64 `json:"lat"`
+	Y       float64 `json:"lon"`
+	Z       float64 `json:"alt"`
 }
 
 type TaskCompleted struct {
 	ID string `json:"id"`
+}
+
+type MissionResult struct {
+	Timestamp           uint64 // time since system start (microseconds)
+	InstanceCount       int    // Instance count of this mission. Increments monotonically whenever the mission is modified
+	SeqReached          int    // Sequence of the mission item which has been reached, default -1
+	SeqCurrent          int    // Sequence of the current mission item
+	SeqTotal            int    // Total number of mission items
+	Valid               bool   // true if mission is valid
+	Warning             bool   // true if mission is valid, but has potentially problematic items leading to safety warnings
+	Finished            bool   // true if mission has been completed
+	Failure             bool   // true if the mission cannot continue or be completed for some reason
+	StayInFailsafe      bool   // true if the commander should not switch out of the failsafe mode
+	FlightTermination   bool   // true if the navigator demands a flight termination from the commander app
+	ItemDoJumpChanged   bool   // true if the number of do jumps remaining has changed
+	ItemChangedIndex    uint16 // indicate which item has changed
+	ItemDoJumpRemaining uint16 // set to the number of do jumps remaining for that item
+	ExecutionMode       uint8  // indicates the mode in which the mission is executed
 }
