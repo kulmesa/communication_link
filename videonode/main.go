@@ -1,147 +1,60 @@
 package main
 
 import (
-	"context"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
 	"os"
+	"os/exec"
 	"os/signal"
-	"sync"
 	"syscall"
-
-	gstreamer "github.com/tiiuae/communication_link/gst"
-	ros "github.com/tiiuae/communication_link/ros"
-	types "github.com/tiiuae/communication_link/types"
-	conf "github.com/tiiuae/communication_link/videonode/config"
 )
-
-import "C"
 
 var (
-	deviceID                = flag.String("device_id", "", "The provisioned device id")
-	configPath              = flag.String("config", "./config.yml", "The configuration of video feed")
-	config     *conf.Config = nil
+	streamAddress = flag.String("stream-address", "", "Address to stream the video to")
 )
-
-type gstreamerCmd struct {
-	Command string
-	Address string
-	Source  string
-}
-
-type gstCh struct {
-	Ch     chan bool
-	Source string
-}
 
 func main() {
 	flag.Parse()
-	config = conf.NewConfig(*configPath)
 
 	// attach sigint & sigterm listeners
 	terminationSignals := make(chan os.Signal, 1)
 	signal.Notify(terminationSignals, syscall.SIGINT, syscall.SIGTERM)
 
-	// quitFunc will be called when process is terminated
-	ctx, quitFunc := context.WithCancel(context.Background())
-
-	// wait group will make sure all goroutines have time to clean up
-	var wg sync.WaitGroup
-
-	node := ros.InitRosNode(*deviceID, "videonode")
-	defer node.ShutdownRosNode()
-	startGstcmdListening(ctx, node, &wg)
-
-	// wait for termination and close quit to signal all
-	<-terminationSignals
-	// cancel the main context
-	log.Printf("Shuttding down..")
-	quitFunc()
-
-	// wait until goroutines have done their cleanup
-	log.Printf("Waiting for routines to finish..")
-	wg.Wait()
-	log.Printf("Signing off - BYE")
-}
-
-func handleGstMessages(ctx context.Context, node *ros.Node) {
-	messages := make(chan types.String)
-	log.Printf("Creating subscriber for %s", "String")
-	sub := node.InitSubscriber(messages, "videostreamcmd", "std_msgs/msg/String")
-	go sub.DoSubscribe(ctx)
-
-	var stop chan struct{}
-
-	for m := range messages {
-		msg := C.GoString((*C.char)(m.Data))
-		log.Printf(msg)
-
-		var gstCmd gstreamerCmd
-		err := json.Unmarshal([]byte(msg), &gstCmd)
-		if err != nil {
-			log.Printf("Could not unmarshal gst command: %v", err)
-			continue
-		}
-		switch gstCmd.Command {
-		case "start":
-			if stop == nil {
-				log.Println("Starting rtsp stream")
-				stop = make(chan struct{})
-				go StartVideoStream(*deviceID, gstCmd.Address, gstCmd.Source, stop)
-			} else {
-				log.Println("Stream already exists")
-			}
-		case "stop":
-			if stop != nil {
-				log.Println("Stopping rtsp stream")
-				close(stop)
-				stop = nil
-			} else {
-				log.Println("Not streaming")
-			}
-		}
+	gstArgs := []string{
+		"udpsrc",
+		"port=5600",
+		"!",
+		"application/x-rtp",
+		"!",
+		"rtph264depay",
+		"!",
+		"queue",
+		"!",
+		"rtspclientsink",
+		"protocols=tcp",
+		fmt.Sprintf("location=%s", *streamAddress),
 	}
-	log.Printf("handleGstMessages END")
-	sub.Finish()
-}
 
-func startGstcmdListening(ctx context.Context, node *ros.Node, wg *sync.WaitGroup) {
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		handleGstMessages(ctx, node)
-	}()
-}
+	gstCmd := exec.Command("gst-launch-1.0", gstArgs...)
+	gstCmd.Stdout = os.Stdout
+	gstCmd.Stderr = os.Stderr
 
-//StartVideoStream starts listening videostream and forward to rtsp server
-func StartVideoStream(deviceID string, address string, source string, ch chan struct{}) {
-
-	log.Println("StartVideoStream:", deviceID)
-
-	pipelineStr := config.GetSource(source)
-	pipelineStr += " name=source "
-	pipelineStr += "! application/x-rtp "
-	pipelineStr += "! rtph264depay "
-	pipelineStr += "! queue "
-	rtspclientstr := fmt.Sprintf("! rtspclientsink name=sink protocols=tcp location=%s tls-validation-flags=generic-error",
-		address)
-	pipelineStr += rtspclientstr
-
-	log.Println(pipelineStr)
-
-	pipeline, err := gstreamer.New(pipelineStr)
-	appsrc := pipeline.FindElement("source")
-
-	appsrc.SetCap("application/x-rtp, media=(string)video, clock-rate=(int)90000, encoding-name=(string)H264")
-
+	err := gstCmd.Start()
 	if err != nil {
-		log.Println("Pipeline failed")
-		return
+		log.Fatalf("Could not start gst-launch-1.0: %v", err)
 	}
-	pipeline.Start()
-	<-ch
-	log.Println("End stream")
-	pipeline.Stop()
+
+	go func() {
+		<-terminationSignals
+
+		gstCmd.Process.Kill()
+	}()
+
+	err = gstCmd.Wait()
+	if err != nil {
+		log.Fatalf("gst-launch-1.0 failed: %v", err)
+	}
+
+	log.Printf("Signing off - BYE")
 }
