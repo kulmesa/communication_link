@@ -233,7 +233,8 @@ func sendFlyToMessages(points []rosTypes.Point, pubPath *ros.Publisher, pubMavli
 	path := rosTypes.NewPath(points)
 	pubPath.DoPublish(path)
 
-	time.Sleep(200 * time.Millisecond)
+	time.Sleep(time.Duration(len(points)*100) * time.Millisecond)
+
 	pubMavlink.DoPublish(rosTypes.GenerateString("start_mission"))
 }
 
