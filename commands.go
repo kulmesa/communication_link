@@ -23,6 +23,8 @@ import (
 	"golang.org/x/crypto/ssh/knownhosts"
 )
 
+var missionSlug string = ""
+
 type controlCommand struct {
 	Command   string
 	Payload   string
@@ -36,6 +38,11 @@ type gstreamerCmd struct {
 
 type trustEvent struct {
 	PublicSSHKey string `json:"public_ssh_key"`
+}
+
+type missionEvent struct {
+	MissionSlug string    `json:"mission_slug"`
+	Timestamp   time.Time `json:"timestamp"`
 }
 
 func InitializeTrust(client mqtt.Client) {
@@ -100,8 +107,15 @@ func JoinMission(client mqtt.Client, payload []byte, me *missionengine.MissionEn
 		return
 	}
 
+	missionSlug = info.MissionSlug
+
 	sshUrl := fmt.Sprintf("ssh://git@%s/%s.git", info.GitServerAddress, info.MissionSlug)
 	me.Start(sshUrl, info.GitServerKey)
+}
+
+func LeaveMission(client mqtt.Client, payload []byte, me *missionengine.MissionEngine) {
+	missionSlug = ""
+	// me.Stop()
 }
 
 // handleControlCommand takes a command string and forwards it to mavlinkcmd
@@ -120,7 +134,9 @@ func handleControlCommand(command string, mqttClient mqtt.Client, pub *ros.Publi
 	case "join-mission":
 		log.Printf("Backend requesting to join a mission")
 		JoinMission(mqttClient, []byte(cmd.Payload), me)
-
+	case "leave-mission":
+		log.Printf("Backend requesting to leave from mission")
+		LeaveMission(mqttClient, []byte(cmd.Payload), me)
 	case "takeoff":
 		log.Printf("Publishing 'takeoff' to /mavlinkcmd")
 		pub.DoPublish(types.GenerateString("takeoff"))
@@ -238,6 +254,25 @@ func handleGstreamerCommands(ctx context.Context, wg *sync.WaitGroup, node *ros.
 	}
 }
 
+func publishMissionState(ctx context.Context, wg *sync.WaitGroup, mqttClient mqtt.Client) {
+	wg.Add(1)
+	defer wg.Done()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(15 * time.Second):
+			topic := fmt.Sprintf("/devices/%s/events/mission-state", *deviceID)
+			msg := missionEvent{
+				MissionSlug: missionSlug,
+				Timestamp:   time.Now().UTC(),
+			}
+			b, _ := json.Marshal(msg)
+			mqttClient.Publish(topic, 1, false, b)
+		}
+	}
+}
+
 func startCommandHandlers(ctx context.Context, wg *sync.WaitGroup, mqttClient mqtt.Client, node *ros.Node, me *missionengine.MissionEngine) {
 
 	controlCommands := make(chan string)
@@ -247,6 +282,7 @@ func startCommandHandlers(ctx context.Context, wg *sync.WaitGroup, mqttClient mq
 	go handleControlCommands(ctx, wg, mqttClient, node, controlCommands, me)
 	go handleMissionCommands(ctx, wg, node, missionCommands)
 	go handleGstreamerCommands(ctx, wg, node, gstreamerCommands)
+	go publishMissionState(ctx, wg, mqttClient)
 
 	log.Printf("Subscribing to MQTT commands")
 	commandTopic := fmt.Sprintf("/devices/%s/commands/", *deviceID)

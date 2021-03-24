@@ -30,9 +30,8 @@ type worldState struct {
 }
 
 type droneState struct {
-	Name   string
-	Leader bool
-	Tasks  []*fleetTask
+	Name  string
+	Tasks []*fleetTask
 }
 
 type fleetTask struct {
@@ -79,7 +78,31 @@ func (s *worldState) handleDroneAdded(msg DroneAdded) []types.Message {
 	if isLeader {
 		s.LeaderName = name
 	}
-	s.Drones[name] = &droneState{name, isLeader, []*fleetTask{}}
+	s.Drones[name] = &droneState{name, []*fleetTask{}}
+
+	// Done if not leader
+	if s.LeaderName != s.MyName {
+		return []types.Message{}
+	}
+
+	if len(s.Backlog) == 0 {
+		return []types.Message{}
+	}
+
+	// Re-assign tasks
+	return s.createTasksAssigned()
+}
+
+func (s *worldState) handleDroneRemoved(msg DroneRemoved) []types.Message {
+	if msg.Name == s.MyName {
+		return []types.Message{}
+	}
+
+	delete(s.Drones, msg.Name)
+
+	if msg.Name == s.LeaderName {
+		s.LeaderName = smallestString(s.Drones.names())
+	}
 
 	// Done if not leader
 	if s.LeaderName != s.MyName {
@@ -364,21 +387,6 @@ func (s *worldState) createMissionPlan() types.Message {
 	}
 }
 
-func (drones *Drones) selectDrone() *droneState {
-	var d *droneState
-	for _, v := range *drones {
-		if d == nil {
-			d = v
-			continue
-		}
-		if v.rank() < d.rank() {
-			d = v
-		}
-	}
-
-	return d
-}
-
 func (drones *Drones) names() []string {
 	result := make([]string, 0)
 	for k := range *drones {
@@ -388,9 +396,17 @@ func (drones *Drones) names() []string {
 	return result
 }
 
-func (drone *droneState) rank() int {
-	boolToInt := map[bool]int{false: 0, true: 1}
-	return len(drone.Tasks) + boolToInt[drone.Leader]
+func smallestString(values []string) string {
+	if len(values) == 0 {
+		return ""
+	}
+	result := values[0]
+	for _, v := range values {
+		if v < result {
+			result = v
+		}
+	}
+	return result
 }
 
 func serialize(i interface{}) string {
