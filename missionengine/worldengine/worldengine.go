@@ -51,7 +51,7 @@ func (we *WorldEngine) HandleMessage(msg types.Message, pubPath *ros.Publisher, 
 	} else if msg.MessageType == "mission-result" {
 		var message MissionResult
 		json.Unmarshal([]byte(msg.Message), &message)
-		outgoing = state.handleMissionResult(message)
+		outgoing = state.handleMissionResult(message, pubMavlink)
 	}
 
 	return outgoing

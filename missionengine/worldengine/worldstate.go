@@ -253,7 +253,7 @@ func (s *worldState) handleTaskCompleted(msg TaskCompleted) []types.Message {
 	return []types.Message{}
 }
 
-func (s *worldState) handleMissionResult(msg MissionResult) []types.Message {
+func (s *worldState) handleMissionResult(msg MissionResult, pubMavlink *ros.Publisher) []types.Message {
 	// InstanceCount usually starts from 2 and increments by 1 every time a new path is sent
 	if s.MissionInstance == -1 {
 		log.Printf("Mission instance count initialized: %v", msg.InstanceCount)
@@ -272,7 +272,7 @@ func (s *worldState) handleMissionResult(msg MissionResult) []types.Message {
 	pathIndex := msg.SeqReached / 3
 	currentIndex := 0
 	result := make([]types.Message, 0)
-	for _, t := range s.MyTasks {
+	for ti, t := range s.MyTasks {
 		for pi, p := range t.Path {
 			if currentIndex <= pathIndex {
 				p.Reached = true
@@ -281,6 +281,10 @@ func (s *worldState) handleMissionResult(msg MissionResult) []types.Message {
 						result = append(result, s.createTaskCompleted(t.ID))
 					}
 					t.Completed = true
+					if ti == len(s.MyTasks)-1 {
+						// this is the last task in the drone -> make the drone land
+						pubMavlink.DoPublish(rosTypes.GenerateString("land"))
+					}
 				}
 			}
 
