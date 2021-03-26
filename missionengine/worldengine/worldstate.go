@@ -160,6 +160,7 @@ func (s *worldState) handleExecutePredefinedToTaskCreated(msg ExecutePredefinedT
 }
 
 func (s *worldState) handleTasksAssigned(msg TasksAssigned, pubPath *ros.Publisher, pubMavlink *ros.Publisher) []types.Message {
+	tasksChanged := false
 	for droneName, tasks := range msg.Tasks {
 		// Fleet tasks
 		drone := s.Drones[droneName]
@@ -169,15 +170,21 @@ func (s *worldState) handleTasksAssigned(msg TasksAssigned, pubPath *ros.Publish
 		}
 		// My tasks
 		if droneName == s.MyName {
-			s.MyTasks = createMyTasks(tasks)
+			newTasks := createMyTasks(tasks)
+			tasksChanged = !tasksEqual(s.MyTasks, newTasks)
+			s.MyTasks = newTasks
 		}
 	}
 
-	// Send PX4 path messages
-	if s.MissionInstance > -1 {
-		s.MissionInstance++
+	if tasksChanged {
+		// Send PX4 path messages
+		if s.MissionInstance > -1 {
+			s.MissionInstance++
+		}
+		sendFlyToMessages(generatePoints(s.MyTasks), pubPath, pubMavlink)
+	} else {
+		log.Println("Task assigment not changed -> skipping")
 	}
-	sendFlyToMessages(generatePoints(s.MyTasks), pubPath, pubMavlink)
 
 	result := make([]types.Message, 0)
 
@@ -212,6 +219,20 @@ func createMyTasks(tasks []*TaskAssignment) []*myTask {
 	}
 
 	return mytasks
+}
+
+func tasksEqual(t1 []*myTask, t2 []*myTask) bool {
+	if len(t1) != len(t2) {
+		return false
+	}
+
+	for i := 0; i < len(t1); i++ {
+		if t1[i].ID != t2[i].ID {
+			return false
+		}
+	}
+
+	return true
 }
 
 func generatePoints(tasks []*myTask) []rosTypes.Point {
