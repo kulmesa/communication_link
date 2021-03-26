@@ -23,16 +23,17 @@ const (
 )
 
 type MissionEngine struct {
-	ctx        context.Context
-	wg         *sync.WaitGroup
-	localNode  *ros.Node
-	fleetNode  *ros.Node
-	mqttClient mqtt.Client
-	droneName  string
+	ctx           context.Context
+	wg            *sync.WaitGroup
+	localNode     *ros.Node
+	fleetNode     *ros.Node
+	mqttClient    mqtt.Client
+	droneName     string
+	updateBacklog chan struct{}
 }
 
 func New(ctx context.Context, wg *sync.WaitGroup, localNode *ros.Node, fleetNode *ros.Node, mqttClient mqtt.Client, droneName string) *MissionEngine {
-	return &MissionEngine{ctx, wg, localNode, fleetNode, mqttClient, droneName}
+	return &MissionEngine{ctx, wg, localNode, fleetNode, mqttClient, droneName, make(chan struct{})}
 }
 
 func (me *MissionEngine) Start(gitServerAddress string, gitServerKey string) {
@@ -55,11 +56,14 @@ func (me *MissionEngine) Start(gitServerAddress string, gitServerKey string) {
 
 		messages := make(chan msg.Message)
 		go runMessageLoop(ctx, wg, we, me.localNode, me.fleetNode, me.mqttClient, messages)
-		go runGitTransport(ctx, wg, gt, messages, droneName)
+		go runGitTransport(ctx, wg, gt, messages, me.updateBacklog, droneName)
 		go runMissionEngineSubscriber(ctx, wg, messages, me.fleetNode, droneName)
 		go runMissionResultSubscriber(ctx, wg, messages, me.localNode, droneName)
-		// go runPublisher(ctx, wg, node)
 	}()
+}
+
+func (me *MissionEngine) UpdateBacklog() {
+	me.updateBacklog <- struct{}{}
 }
 
 func runMessageLoop(ctx context.Context, wg *sync.WaitGroup, we *worldengine.WorldEngine, localNode *ros.Node, fleetNode *ros.Node, mqttClient mqtt.Client, ch <-chan msg.Message) {
@@ -98,7 +102,7 @@ func runMessageLoop(ctx context.Context, wg *sync.WaitGroup, we *worldengine.Wor
 	pubmavlink.Finish()
 }
 
-func runGitTransport(ctx context.Context, wg *sync.WaitGroup, gt *gittransport.GitEngine, ch chan<- msg.Message, droneName string) {
+func runGitTransport(ctx context.Context, wg *sync.WaitGroup, gt *gittransport.GitEngine, ch chan<- msg.Message, gitPull <-chan struct{}, droneName string) {
 	wg.Add(1)
 	defer wg.Done()
 
@@ -107,6 +111,7 @@ func runGitTransport(ctx context.Context, wg *sync.WaitGroup, gt *gittransport.G
 		case <-ctx.Done():
 			close(ch)
 			return
+		case <-gitPull:
 		case <-time.After(5 * time.Second):
 		}
 		msgs := gt.PullMessages(droneName)
@@ -115,28 +120,6 @@ func runGitTransport(ctx context.Context, wg *sync.WaitGroup, gt *gittransport.G
 		}
 	}
 }
-
-// func runPublisher(ctx context.Context, wg *sync.WaitGroup, node *ros.Node) {
-// 	wg.Add(1)
-// 	defer wg.Done()
-// 	pub := node.InitPublisher(TOPIC_TASKS_ASSIGNED, "std_msgs/msg/String", (*types.String)(nil))
-
-// 	msg := TasksAssigned{
-// 		"droneb",
-// 		[]string{"7bfa9df9-2b6f-4d20-84fa-905a6047190b", "e56982cd-b193-44a3-bcb8-d196f8f00209", "98b3b776-28af-4167-8a9f-12738c6a4c9b"},
-// 	}
-
-// 	for {
-// 		select {
-// 		case <-ctx.Done():
-// 			pub.Finish()
-// 			return
-// 		case <-time.After(1000 * time.Millisecond):
-// 		}
-// 		str := types.GenerateString(serialize(msg))
-// 		pub.DoPublish(str)
-// 	}
-// }
 
 func runMissionEngineSubscriber(ctx context.Context, wg *sync.WaitGroup, ch chan<- msg.Message, node *ros.Node, droneName string) {
 	wg.Add(1)

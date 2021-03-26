@@ -118,6 +118,10 @@ func LeaveMission(client mqtt.Client, payload []byte, me *missionengine.MissionE
 	// me.Stop()
 }
 
+func UpdateBacklog(me *missionengine.MissionEngine) {
+	me.UpdateBacklog()
+}
+
 // handleControlCommand takes a command string and forwards it to mavlinkcmd
 func handleControlCommand(command string, mqttClient mqtt.Client, pub *ros.Publisher, me *missionengine.MissionEngine) {
 	var cmd controlCommand
@@ -137,6 +141,9 @@ func handleControlCommand(command string, mqttClient mqtt.Client, pub *ros.Publi
 	case "leave-mission":
 		log.Printf("Backend requesting to leave from mission")
 		LeaveMission(mqttClient, []byte(cmd.Payload), me)
+	case "update-backlog":
+		log.Printf("Backend requesting to update backlog")
+		UpdateBacklog(me)
 	case "takeoff":
 		log.Printf("Publishing 'takeoff' to /mavlinkcmd")
 		pub.DoPublish(types.GenerateString("takeoff"))
