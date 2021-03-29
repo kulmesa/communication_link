@@ -10,27 +10,44 @@ jobs:
   tii-communication-link-deb:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
 
-      - uses: docker/setup-buildx-action@v1
+      - name: Checkout communication-link
+        uses: actions/checkout@v2
+        with:
+          path: communication_link
 
-      - uses: jfrog/setup-jfrog-cli@v1
+      - name: Checkout ci-scripts
+        uses: actions/checkout@v2
+        with:
+          repository: tiiuae/fogsw-ci-scripts
+          path: fogsw-ci-scripts
 
       # Run docker build
       - name: Run fog-sw docker build
         run: |
-          set -x
-          docker build --build-arg BUILD_NUMBER=${GITHUB_RUN_NUMBER} -t communication_link -f Dockerfile .
-          container_id=$(docker create communication_link "")
-          docker cp ${container_id}:/packages .
-          docker rm ${container_id}
-          ls -l packages
+          set -eux
+          mkdir bin
+          pushd fogsw-ci-scripts
+          ./generate_deb.sh ../communication_link ../bin/
+          popd
+
+      - name: Install jfrog CLI tool
+        env:
+          JFROG_CLI_URL: https://artifactory.ssrc.fi/artifactory/gen-public-local/tools/jfrog/jfrog-1.45.2.tar.gz
+        if: github.event_name == 'push'
+        run: |
+          set -exu
+          mkdir -p "$GITHUB_WORKSPACE/.jfrog/bin"
+          curl -L "$JFROG_CLI_URL" -o "$GITHUB_WORKSPACE/.jfrog/jfrog.tar.gz"
+          tar -C "$GITHUB_WORKSPACE/.jfrog/bin" -zxf "$GITHUB_WORKSPACE/.jfrog/jfrog.tar.gz"
+          echo "$GITHUB_WORKSPACE/.jfrog/bin" >> "$GITHUB_PATH"
+          echo "JFROG_CLI_HOME_DIR=$GITHUB_WORKSPACE/.jfrog" >> "$GITHUB_ENV"
 
       - name: Upload to Artifactory
         env:
-          JF_ARTIFACTORY_1: ${{ secrets.JF_ARTIFACTORY_SECRET_1 }}
-          ARTIFACTORY_URL: ${{ secrets.ARTIFACTORY_URL }}
-          ARTIFACTORY_REPO: ${{ secrets.ARTIFACTORY_REPO }}
+          ARTIFACTORY_TOKEN: ${{ secrets.ARTIFACTORY_TOKEN }}
+          JFROG_CLI_LOG_LEVEL: DEBUG
+          ARTIFACTORY_REPO: debian-private-local
           DISTRIBUTION: focal
           COMPONENT: fog-sw
           ARCHITECTURE: amd64
@@ -38,10 +55,10 @@ jobs:
         if: github.event_name == 'push'
         run: |
           set -exu
-          pkg=$(find packages/ -name 'communication-link*.deb')
-          jfrog rt ping --url "$ARTIFACTORY_URL"
-          jfrog rt u --url "$ARTIFACTORY_URL" \
-                     --deb "$DISTRIBUTION/$COMPONENT/$ARCHITECTURE" \
+          jfrog rt c import "$ARTIFACTORY_TOKEN"
+          jfrog rt ping
+          pkg=$(find bin -name 'communication-link*.deb')
+          jfrog rt u --deb "$DISTRIBUTION/$COMPONENT/$ARCHITECTURE" \
                      --target-props COMMIT="$GITHUB_SHA" \
                      "$pkg" \
                      "$ARTIFACTORY_REPO"
